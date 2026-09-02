@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
-import { Button, Card } from '@/components/ui';
+import { ArrowRightIcon, CheckIcon, UserIcon } from '@/components/icons';
+import { Button, Card, FIELD_CLASS, Skeleton } from '@/components/ui';
 import { useStore } from '@/lib/store';
 
 /**
@@ -63,32 +64,39 @@ function LoginPageInner() {
   }
 
   if (!hydrated) {
-    return <div className="mx-auto max-w-md" />;
+    return (
+      <div className="mx-auto max-w-md space-y-6">
+        <Skeleton className="h-9 w-32" />
+        <Skeleton className="h-56" />
+      </div>
+    );
   }
 
   return (
     <div className="mx-auto max-w-md space-y-8">
-      <section>
-        <h1 className="text-2xl font-extrabold">로그인</h1>
-        <p className="kr-text mt-2 text-sm text-muted">
+      <section className="aurora text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight">로그인</h1>
+        <p className="kr-text mx-auto mt-2 max-w-sm text-sm text-muted">
           로그인하면 즐겨찾기·보관함과 초개인화 아이디어를 계정 단위로
           유지할 수 있습니다.
         </p>
       </section>
 
-      <Card className="border-dashed bg-surface-muted">
-        <p className="kr-text text-sm text-muted">
-          이 로그인은 프로토타입용 임시 화면입니다. 실제 인증 서버 없이
-          입력한 정보가 브라우저에만 저장되며, 로그인 방식(이메일/소셜 등)은
-          PRD상 아직 결정되지 않았습니다(TBD).
-        </p>
-      </Card>
-
       {user ? (
         <Card>
           <p className="text-sm text-muted">현재 로그인된 계정</p>
-          <p className="mt-1 text-lg font-bold">{user.nickname}</p>
-          <p className="mt-0.5 text-sm text-muted">{user.email}</p>
+          <div className="mt-2 flex items-center gap-3.5">
+            <span
+              aria-hidden
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-strong"
+            >
+              <UserIcon className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-lg font-bold">{user.nickname}</p>
+              <p className="mt-0.5 truncate text-sm text-muted">{user.email}</p>
+            </div>
+          </div>
           <div className="mt-5 flex gap-2">
             <Button variant="secondary" onClick={logout}>
               로그아웃
@@ -111,12 +119,13 @@ function LoginPageInner() {
                   if (error) setError('');
                 }}
                 placeholder="name@example.com"
-                className="mt-1.5 w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                autoComplete="email"
+                className={`mt-1.5 ${FIELD_CLASS}`}
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? 'login-email-error' : undefined}
               />
               {error && (
-                <p id="login-email-error" className="kr-text mt-1.5 text-xs text-red-600">
+                <p id="login-email-error" role="alert" className="kr-text mt-1.5 text-xs text-danger">
                   {error}
                 </p>
               )}
@@ -132,29 +141,45 @@ function LoginPageInner() {
                 value={nickname}
                 onChange={(event) => setNickname(event.target.value)}
                 placeholder="입력하지 않으면 이메일 앞부분을 사용합니다"
-                className="mt-1.5 w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                autoComplete="nickname"
+                className={`mt-1.5 ${FIELD_CLASS}`}
               />
             </div>
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" size="lg" className="w-full">
               시작하기
+              <ArrowRightIcon />
             </Button>
           </form>
         </Card>
       )}
 
-      <section className="space-y-2">
-        <p className="text-sm font-semibold">로그인하면 이런 걸 할 수 있어요</p>
-        <ul className="kr-text list-inside list-disc space-y-1 text-sm text-muted">
-          <li>관심 있는 문제·아이디어 즐겨찾기</li>
-          <li>저장한 항목을 보관함에서 다시 확인</li>
-          <li>내 조건에 맞춘 초개인화 아이디어 받기</li>
+      <section className="space-y-3">
+        <p className="text-sm font-bold">로그인하면 이런 걸 할 수 있어요</p>
+        <ul className="space-y-2">
+          {[
+            '관심 있는 문제·아이디어 즐겨찾기',
+            '저장한 항목을 보관함에서 다시 확인',
+            '내 조건에 맞춘 초개인화 아이디어 받기',
+          ].map((benefit) => (
+            <li key={benefit} className="kr-text flex items-start gap-2 text-sm text-muted">
+              <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand" />
+              {benefit}
+            </li>
+          ))}
         </ul>
-        <p className="kr-text mt-3 text-xs text-muted">
+        <p className="kr-text pt-2 text-xs text-muted">
           랜딩, 문제 탐색, 문제 상세, 기본 아이디어 확인은 로그인 없이도
           이용할 수 있습니다.
         </p>
       </section>
+
+      {/* 프로토타입 고지는 본문 흐름을 끊지 않도록 맨 아래로 내렸다. */}
+      <p className="kr-text rounded-xl border border-dashed border-border px-4 py-3 text-xs leading-relaxed text-muted">
+        이 로그인은 프로토타입용 임시 화면입니다. 실제 인증 서버 없이 입력한 정보가
+        브라우저에만 저장되며, 로그인 방식(이메일/소셜 등)은 PRD상 아직 결정되지
+        않았습니다(TBD).
+      </p>
     </div>
   );
 }

@@ -6,7 +6,15 @@
  */
 
 import { useParams } from 'next/navigation';
-import { Badge, ButtonLink, EmptyState, SectionTitle } from '@/components/ui';
+import { ArrowRightIcon } from '@/components/icons';
+import {
+  Badge,
+  ButtonLink,
+  CardListSkeleton,
+  EmptyState,
+  PageHeader,
+  Skeleton,
+} from '@/components/ui';
 import { IdeaCard } from '@/components/IdeaCard';
 import { getProblem } from '@/lib/data';
 import { useStore } from '@/lib/store';
@@ -17,10 +25,14 @@ export default function PersonalizationRunPage() {
 
   const run = getRun(runId);
 
+  // 결과는 로컬 스토어에만 있어 hydration 전에는 알 수 없다.
+  // 빈 화면 대신 최종 레이아웃과 같은 형태의 자리 표시자를 둔다.
   if (!hydrated) {
     return (
-      <div className="space-y-6">
-        <SectionTitle title="맞춤 아이디어" description="불러오는 중입니다…" />
+      <div className="space-y-8">
+        <PageHeader title="맞춤 아이디어" description="불러오는 중입니다…" />
+        <Skeleton className="h-8 w-64" />
+        <CardListSkeleton count={3} />
       </div>
     );
   }
@@ -48,36 +60,44 @@ export default function PersonalizationRunPage() {
 
   return (
     <div className="space-y-8">
-      <SectionTitle
+      <PageHeader
+        eyebrow={
+          <span className="display text-sm tracking-[0.18em] text-ai uppercase">
+            Personalized
+          </span>
+        }
         title="맞춤 아이디어"
         description={
           problem
             ? `"${problem.title}" 문제를 기준으로 조건에 맞게 다시 구성한 아이디어입니다.`
             : '입력한 조건에 맞게 다시 구성한 아이디어입니다.'
         }
-        aside={
-          <div className="flex flex-wrap gap-2">
+      >
+        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-border bg-surface px-4 py-3.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted">적용된 조건</span>
+            <Badge tone="brand">{input.serviceForm}</Badge>
+            <Badge tone="brand">{input.target}</Badge>
+            <Badge tone="brand">{input.resource}</Badge>
+            {input.extra && <Badge tone="outline">추가 조건 반영됨</Badge>}
+          </div>
+          <div className="ml-auto flex flex-wrap gap-2">
             {problem && (
-              <ButtonLink href={`/problems/${problem.id}`} variant="ghost">
+              <ButtonLink href={`/problems/${problem.id}`} variant="ghost" size="sm">
                 원본 문제 보기
               </ButtonLink>
             )}
             <ButtonLink
               href={`/personalize?${retryParams.toString()}`}
               variant="secondary"
+              size="sm"
             >
               조건 바꿔 다시 받기
+              <ArrowRightIcon className="size-3.5" />
             </ButtonLink>
           </div>
-        }
-      />
-
-      <div className="flex flex-wrap gap-2">
-        <Badge tone="brand">{input.serviceForm}</Badge>
-        <Badge tone="brand">{input.target}</Badge>
-        <Badge tone="brand">{input.resource}</Badge>
-        {input.extra && <Badge>추가 조건 반영됨</Badge>}
-      </div>
+        </div>
+      </PageHeader>
 
       {ideas.length === 0 ? (
         <EmptyState
@@ -86,16 +106,17 @@ export default function PersonalizationRunPage() {
           action={<ButtonLink href="/personalize">다시 시도하기</ButtonLink>}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {ideas.map((idea) => (
-            <IdeaCard
-              key={idea.id}
-              idea={idea}
-              saveKind="personalized"
-              href={`/personalize/${run.id}/${idea.id}`}
-            />
+            <li key={idea.id}>
+              <IdeaCard
+                idea={idea}
+                saveKind="personalized"
+                href={`/personalize/${run.id}/${idea.id}`}
+              />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

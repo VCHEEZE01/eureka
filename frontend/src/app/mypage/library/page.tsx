@@ -1,8 +1,15 @@
 'use client';
 
-import Link from 'next/link';
 import { LOGIN_GATE, RunRow, SavedRow } from '@/components/mypage/items';
-import { ButtonLink, EmptyState, SectionTitle } from '@/components/ui';
+import {
+  Breadcrumbs,
+  ButtonLink,
+  CardListSkeleton,
+  EmptyState,
+  PageHeader,
+  SectionTitle,
+  Skeleton,
+} from '@/components/ui';
 import { useStore } from '@/lib/store';
 
 /**
@@ -13,8 +20,14 @@ import { useStore } from '@/lib/store';
 export default function LibraryPage() {
   const { user, saved, runs, toggleSave, hydrated } = useStore();
 
+  // 저장 목록은 localStorage에서 온다. 빈 화면 대신 자리 표시자를 그린다.
   if (!hydrated) {
-    return <div className="min-h-[40vh]" />;
+    return (
+      <div className="space-y-8">
+        <Skeleton className="h-9 w-40" />
+        <CardListSkeleton count={4} />
+      </div>
+    );
   }
 
   if (!user) {
@@ -36,17 +49,11 @@ export default function LibraryPage() {
 
   return (
     <div className="space-y-12">
-      <div>
-        <nav className="mb-3 text-sm text-muted">
-          <Link href="/mypage" className="hover:text-foreground">
-            마이페이지
-          </Link>
-          <span className="mx-2" aria-hidden>
-            ›
-          </span>
-          <span className="text-foreground">보관함</span>
-        </nav>
-        <SectionTitle
+      <div className="space-y-5">
+        <Breadcrumbs
+          items={[{ label: '마이페이지', href: '/mypage' }, { label: '보관함' }]}
+        />
+        <PageHeader
           title="보관함"
           description="저장한 문제와 아이디어를 모아봅니다."
         />
@@ -55,13 +62,22 @@ export default function LibraryPage() {
       {saved.length === 0 && runs.length === 0 ? (
         <EmptyState
           title="아직 저장한 항목이 없습니다"
-          description="문제 상세나 아이디어 카드의 저장 버튼(☆)을 누르면 여기서 다시 확인할 수 있습니다."
+          description="문제 상세나 아이디어 카드의 저장 버튼을 누르면 여기서 다시 확인할 수 있습니다."
           action={<ButtonLink href="/problems">문제 둘러보기</ButtonLink>}
         />
       ) : (
         <>
           <section className="space-y-4">
-            <SectionTitle title="저장한 문제" />
+            <SectionTitle
+              title="저장한 문제"
+              aside={
+                savedProblems.length > 0 ? (
+                  <span className="text-sm text-muted tabular-nums">
+                    {savedProblems.length}건
+                  </span>
+                ) : undefined
+              }
+            />
             {savedProblems.length === 0 ? (
               <p className="kr-text text-sm text-muted">저장한 문제가 없습니다.</p>
             ) : (
@@ -78,7 +94,16 @@ export default function LibraryPage() {
           </section>
 
           <section className="space-y-4">
-            <SectionTitle title="저장한 아이디어" />
+            <SectionTitle
+              title="저장한 아이디어"
+              aside={
+                savedIdeas.length > 0 ? (
+                  <span className="text-sm text-muted tabular-nums">
+                    {savedIdeas.length}건
+                  </span>
+                ) : undefined
+              }
+            />
             {savedIdeas.length === 0 ? (
               <p className="kr-text text-sm text-muted">저장한 아이디어가 없습니다.</p>
             ) : (

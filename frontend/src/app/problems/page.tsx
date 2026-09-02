@@ -1,5 +1,4 @@
-import { ButtonLink } from '@/components/ui';
-import { EmptyState, SectionTitle } from '@/components/ui';
+import { ButtonLink, EmptyState, PageHeader } from '@/components/ui';
 import { ProblemCardLink } from '@/components/ProblemCard';
 import {
   ProblemFilters,
@@ -66,22 +65,18 @@ export default async function ProblemsPage({
 
   return (
     <div className="space-y-8">
-      <SectionTitle
+      <PageHeader
+        eyebrow={<span className="display text-sm tracking-[0.18em] text-brand uppercase">Explore</span>}
         title="문제 탐색"
         description="커뮤니티·리뷰·뉴스·소셜에서 모은 실제 불편 중 관심 있는 문제를 찾아보세요."
       />
 
       <ProblemFilters
         totalCount={totalCount}
+        resultCount={results.length}
         categories={categoryOptions}
         current={{ q, category, sort }}
       />
-
-      {!isEmpty && (
-        <p className="text-sm text-muted">
-          총 <span className="font-semibold text-foreground tabular-nums">{results.length}</span>건
-        </p>
-      )}
 
       {isEmpty ? (
         hasQuery ? (
