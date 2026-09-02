@@ -29,8 +29,11 @@ npm run dev      # http://localhost:3000
 | `/personalize` | F05 초개인화 요청 |
 | `/personalize/[runId]` | F05 개인화 결과 |
 | `/personalize/[runId]/[ideaId]` | F06 개인화 아이디어 상세 |
-| `/library` | F07 보관함 |
+| `/mypage` | 마이페이지 (계정·저장 현황) |
+| `/mypage/library` | F07 보관함 |
 | `/login` | F08 로그인 |
+
+`/library`는 이전 경로라 `/mypage/library`로 리다이렉트됩니다.
 
 ## 기본 아이디어 화면 A/B/C 버전
 

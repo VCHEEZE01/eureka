@@ -41,8 +41,8 @@ export default function LandingPage() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <ButtonLink href="/problems">문제 둘러보기</ButtonLink>
-          <ButtonLink href="/library" variant="secondary">
-            보관함 보기
+          <ButtonLink href="/mypage" variant="secondary">
+            마이페이지
           </ButtonLink>
         </div>
         <p className="mt-4 text-sm text-muted">

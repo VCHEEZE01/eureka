@@ -7,7 +7,7 @@ import { VARIANTS, VARIANT_SPECS } from '@/lib/types';
 
 const NAV = [
   { href: '/problems', label: '문제 탐색' },
-  { href: '/library', label: '보관함' },
+  { href: '/mypage', label: '마이페이지' },
 ];
 
 /**
