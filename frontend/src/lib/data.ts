@@ -90,3 +90,8 @@ export function ideaRoundCount(problemId: string): number {
 export function getIdea(id: string): Idea | undefined {
   return ideas.find((idea) => idea.id === id);
 }
+
+/** 정적 경로 생성 등에서 쓰는 전체 아이디어 목록. */
+export function getAllIdeas(): Idea[] {
+  return ideas;
+}

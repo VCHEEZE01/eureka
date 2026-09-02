@@ -46,7 +46,8 @@ export function Card({
   children,
 }: {
   className?: string;
-  children: ReactNode;
+  /** 스켈레톤처럼 내용 없이 형태만 쓰는 경우가 있어 선택값으로 둔다. */
+  children?: ReactNode;
 }) {
   return (
     <div

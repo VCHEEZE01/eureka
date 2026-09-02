@@ -4,15 +4,18 @@
  * 프로토타입용 클라이언트 전역 상태.
  * 로그인(F08), 즐겨찾기/보관함(F07), 개인화 결과(F05), A/B/C 변형을 담당한다.
  * 백엔드가 아직 없으므로 localStorage에 보관한다.
+ *
+ * 모듈 수준 외부 스토어 + useSyncExternalStore 조합을 쓴다.
+ * 이펙트에서 setState로 복원하면 마운트마다 연쇄 렌더가 발생하므로,
+ * 스냅샷을 직접 읽어 첫 클라이언트 렌더에서 바로 복원된 값을 쓴다.
  */
 
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import {
@@ -47,24 +50,13 @@ const EMPTY_STATE: PersistedState = {
   variant: 'A',
 };
 
-interface Store extends PersistedState {
-  /** localStorage 복원이 끝났는지. 서버/클라이언트 마크업 불일치를 막는 데 쓴다. */
-  hydrated: boolean;
-  variantSpec: VariantSpec;
-  setVariant: (variant: Variant) => void;
-  login: (email: string, nickname?: string) => void;
-  logout: () => void;
-  isSaved: (kind: SavedKind, refId: string) => boolean;
-  /** 저장/해제 토글. 로그인 상태가 아니면 false를 반환한다. */
-  toggleSave: (item: Omit<SavedItem, 'key' | 'savedAt'>) => boolean;
-  addRun: (run: PersonalizationRun) => void;
-  getRun: (id: string) => PersonalizationRun | undefined;
-}
+/* ── 외부 스토어 ───────────────────────────────────────────────── */
 
-const StoreContext = createContext<Store | null>(null);
+let state: PersistedState = EMPTY_STATE;
+let loaded = false;
+const listeners = new Set<() => void>();
 
 function readStorage(): PersistedState {
-  if (typeof window === 'undefined') return EMPTY_STATE;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return EMPTY_STATE;
@@ -82,58 +74,102 @@ function readStorage(): PersistedState {
   }
 }
 
+/** 최초 클라이언트 접근 시 한 번만 localStorage와 URL에서 상태를 복원한다. */
+function ensureLoaded() {
+  if (loaded || typeof window === 'undefined') return;
+  loaded = true;
+  const restored = readStorage();
+  // ?v=B 처럼 URL로 변형을 지정하면 저장값보다 우선한다. (실험 링크 공유용)
+  const fromUrl = new URLSearchParams(window.location.search)
+    .get('v')
+    ?.toUpperCase() as Variant | undefined;
+  state =
+    fromUrl && VARIANTS.includes(fromUrl)
+      ? { ...restored, variant: fromUrl }
+      : restored;
+}
+
+function getSnapshot(): PersistedState {
+  ensureLoaded();
+  return state;
+}
+
+/** 서버 렌더에서는 항상 초기 상태를 쓴다. hydration 불일치를 막는다. */
+function getServerSnapshot(): PersistedState {
+  return EMPTY_STATE;
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function update(updater: (prev: PersistedState) => PersistedState) {
+  ensureLoaded();
+  const next = updater(state);
+  if (next === state) return;
+  state = next;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // 저장 실패(용량 초과/프라이빗 모드)는 프로토타입에서 무시한다.
+  }
+  listeners.forEach((listener) => listener());
+}
+
+/* ── React 바인딩 ──────────────────────────────────────────────── */
+
+interface Store extends PersistedState {
+  /** 클라이언트에서 복원이 끝났는지. 서버 마크업과의 불일치를 막는 데 쓴다. */
+  hydrated: boolean;
+  variantSpec: VariantSpec;
+  setVariant: (variant: Variant) => void;
+  login: (email: string, nickname?: string) => void;
+  logout: () => void;
+  isSaved: (kind: SavedKind, refId: string) => boolean;
+  /** 저장/해제 토글. 로그인 상태가 아니면 false를 반환한다. */
+  toggleSave: (item: Omit<SavedItem, 'key' | 'savedAt'>) => boolean;
+  addRun: (run: PersonalizationRun) => void;
+  getRun: (id: string) => PersonalizationRun | undefined;
+}
+
+const StoreContext = createContext<Store | null>(null);
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PersistedState>(EMPTY_STATE);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    const restored = readStorage();
-    // ?v=B 처럼 URL로 변형을 지정하면 저장값보다 우선한다. (실험 링크 공유용)
-    const fromUrl = new URLSearchParams(window.location.search)
-      .get('v')
-      ?.toUpperCase() as Variant | undefined;
-    setState(
-      fromUrl && VARIANTS.includes(fromUrl)
-        ? { ...restored, variant: fromUrl }
-        : restored,
-    );
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // 저장 실패(용량 초과/프라이빗 모드)는 프로토타입에서 무시한다.
-    }
-  }, [state, hydrated]);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const hydrated = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
 
   const setVariant = useCallback((variant: Variant) => {
-    setState((prev) => ({ ...prev, variant }));
+    update((prev) => ({ ...prev, variant }));
   }, []);
 
   const login = useCallback((email: string, nickname?: string) => {
-    setState((prev) => ({
+    update((prev) => ({
       ...prev,
       user: { email, nickname: nickname || email.split('@')[0] },
     }));
   }, []);
 
   const logout = useCallback(() => {
-    setState((prev) => ({ ...prev, user: null }));
+    update((prev) => ({ ...prev, user: null }));
   }, []);
 
   const isSaved = useCallback(
     (kind: SavedKind, refId: string) =>
-      state.saved.some((item) => item.key === savedKey(kind, refId)),
-    [state.saved],
+      snapshot.saved.some((item) => item.key === savedKey(kind, refId)),
+    [snapshot.saved],
   );
 
   const toggleSave = useCallback(
     (item: Omit<SavedItem, 'key' | 'savedAt'>) => {
       let handled = false;
-      setState((prev) => {
+      update((prev) => {
         if (!prev.user) return prev; // F07: 저장은 로그인 필요
         handled = true;
         const key = savedKey(item.kind, item.refId);
@@ -151,19 +187,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const addRun = useCallback((run: PersonalizationRun) => {
-    setState((prev) => ({ ...prev, runs: [run, ...prev.runs].slice(0, 20) }));
+    update((prev) => ({ ...prev, runs: [run, ...prev.runs].slice(0, 20) }));
   }, []);
 
   const getRun = useCallback(
-    (id: string) => state.runs.find((run) => run.id === id),
-    [state.runs],
+    (id: string) => snapshot.runs.find((run) => run.id === id),
+    [snapshot.runs],
   );
 
   const value = useMemo<Store>(
     () => ({
-      ...state,
+      ...snapshot,
       hydrated,
-      variantSpec: VARIANT_SPECS[state.variant],
+      variantSpec: VARIANT_SPECS[snapshot.variant],
       setVariant,
       login,
       logout,
@@ -172,7 +208,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addRun,
       getRun,
     }),
-    [state, hydrated, setVariant, login, logout, isSaved, toggleSave, addRun, getRun],
+    [snapshot, hydrated, setVariant, login, logout, isSaved, toggleSave, addRun, getRun],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
