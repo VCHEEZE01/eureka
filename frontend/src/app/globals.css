@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/**
+ * 유레카 디자인 토큰.
+ * 근거(실제 데이터) 영역과 AI 서술 영역을 시각적으로 구분하는 것이
+ * PRD F03/F06의 요구사항이라 두 계열의 색을 별도로 둔다.
+ */
+:root {
+  --background: #fbfaf8;
+  --surface: #ffffff;
+  --surface-muted: #f4f2ee;
+  --foreground: #16150f;
+  --muted: #6b6659;
+  --border: #e5e1d8;
+
+  /* 브랜드: 발견의 순간을 나타내는 앰버 계열 */
+  --brand: #b4610a;
+  --brand-strong: #8c4b06;
+  --brand-soft: #fdf1e0;
+
+  /* 근거(실제 수집 데이터) 영역 */
+  --evidence: #1f6f5c;
+  --evidence-soft: #e8f4f0;
+
+  /* AI 생성 서술 영역 */
+  --ai: #5b4bb8;
+  --ai-soft: #efecfb;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-evidence: var(--evidence);
+  --color-evidence-soft: var(--evidence-soft);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --font-sans: var(--font-pretendard), system-ui, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 한국어 본문의 줄바꿈이 어절 중간에서 끊기지 않도록 한다. */
+.kr-text {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
