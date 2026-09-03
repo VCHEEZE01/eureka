@@ -2,24 +2,16 @@
 
 /**
  * 유레카 디자인 토큰.
- *
- * 방향: 에디토리얼 · 근거 중심. 종이 질감의 웜 그레이 바탕 위에서
- * 강한 타이포 위계로 읽히게 하고, 색은 정보의 "출처 성격"에만 쓴다.
- *
  * 근거(실제 데이터) 영역과 AI 서술 영역을 시각적으로 구분하는 것이
  * PRD F03/F06의 요구사항이라 두 계열의 색을 별도로 둔다.
  */
 :root {
-  color-scheme: light;
-
-  --background: #faf8f4;
+  --background: #fbfaf8;
   --surface: #ffffff;
-  --surface-muted: #f3f0e9;
-  --surface-raised: #ffffff;
+  --surface-muted: #f4f2ee;
   --foreground: #16150f;
-  --muted: #6b6558;
-  --border: #e6e1d6;
-  --border-strong: #d3ccbc;
+  --muted: #6b6659;
+  --border: #e5e1d8;
 
   /* 브랜드: 발견의 순간을 나타내는 앰버 계열 */
   --brand: #b4610a;
@@ -33,61 +25,15 @@
   /* AI 생성 서술 영역 */
   --ai: #5b4bb8;
   --ai-soft: #efecfb;
-
-  --danger: #c0392b;
-
-  /* 고도(elevation). 웜 톤 그림자라 종이 위에 놓인 느낌이 난다. */
-  --shadow-sm: 0 1px 2px rgba(58, 47, 26, 0.05);
-  --shadow-md: 0 2px 4px rgba(58, 47, 26, 0.05), 0 8px 20px -8px rgba(58, 47, 26, 0.14);
-  --shadow-lg: 0 4px 8px rgba(58, 47, 26, 0.06), 0 20px 40px -16px rgba(58, 47, 26, 0.2);
-
-  --ease-out: cubic-bezier(0.22, 0.72, 0.24, 1);
-
-  /* 라틴 문자·숫자 전용 에디토리얼 악센트. 한글은 자동으로 Pretendard로 폴백된다.
-     --font-display-serif는 next/font가 <html>에 심어 준다. */
-  --font-display: var(--font-display-serif), 'Iowan Old Style', Georgia, serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-
-    --background: #131210;
-    --surface: #1c1a17;
-    --surface-muted: #26231e;
-    --surface-raised: #211e1a;
-    --foreground: #f4f1e8;
-    --muted: #a09889;
-    --border: #302c26;
-    --border-strong: #443f36;
-
-    --brand: #f0a14f;
-    --brand-strong: #ffc182;
-    --brand-soft: #33240f;
-
-    --evidence: #52c2a3;
-    --evidence-soft: #102b25;
-
-    --ai: #a99bf0;
-    --ai-soft: #1f1b38;
-
-    --danger: #f0796a;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 20px -8px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 20px 40px -16px rgba(0, 0, 0, 0.7);
-  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-muted: var(--surface-muted);
-  --color-surface-raised: var(--surface-raised);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
@@ -95,10 +41,7 @@
   --color-evidence-soft: var(--evidence-soft);
   --color-ai: var(--ai);
   --color-ai-soft: var(--ai-soft);
-  --color-danger: var(--danger);
-
-  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
-    system-ui, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --font-sans: var(--font-pretendard), system-ui, sans-serif;
 }
 
 body {
@@ -106,12 +49,6 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-::selection {
-  background: var(--brand-soft);
-  color: var(--brand-strong);
 }
 
 /* 한국어 본문의 줄바꿈이 어절 중간에서 끊기지 않도록 한다. */
@@ -120,99 +57,11 @@ body {
   overflow-wrap: break-word;
 }
 
-/* 라틴 숫자/단어를 크게 쓰는 자리(통계, 스텝 번호, 히어로 아이브로우)에만 쓴다. */
-.display {
-  font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
-
-/**
- * 모든 인터랙티브 요소가 같은 포커스 링을 쓰도록 한 곳에 모은다.
- * 이전에는 화면마다 outline 유틸리티를 제각각 붙여 일부 요소에 링이 없었다.
- */
-.focus-ring {
-  outline: none;
-}
-.focus-ring:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-/* 카드 전체가 링크인 경우, 내부 링크의 포커스를 카드 바깥 테두리로 끌어올린다. */
-.focus-within-ring:has(a:focus-visible) {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-/* 히어로/빈 상태 뒤에 까는 은은한 발광. 평면 배경을 피하기 위한 최소한의 대기감. */
-.aurora {
-  position: relative;
-  isolation: isolate;
-}
-.aurora::before {
-  content: '';
-  position: absolute;
-  inset: -20% -10% auto -10%;
-  height: 420px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(42% 60% at 18% 20%, color-mix(in oklab, var(--brand) 22%, transparent), transparent 70%),
-    radial-gradient(38% 55% at 82% 8%, color-mix(in oklab, var(--ai) 16%, transparent), transparent 70%),
-    radial-gradient(40% 50% at 55% 60%, color-mix(in oklab, var(--evidence) 12%, transparent), transparent 72%);
-  filter: blur(28px);
-  opacity: 0.85;
-}
-
-/* 진입 시 한 번만 도는 계단식 등장. 화면당 한 번, 위계를 드러내는 용도로만 쓴다. */
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.rise {
-  animation: rise 0.5s var(--ease-out) both;
-}
-.rise-1 { animation-delay: 0.04s; }
-.rise-2 { animation-delay: 0.1s; }
-.rise-3 { animation-delay: 0.16s; }
-.rise-4 { animation-delay: 0.22s; }
-
-@keyframes shimmer {
-  from { background-position: -200% 0; }
-  to { background-position: 200% 0; }
-}
-.skeleton {
-  background-image: linear-gradient(
-    90deg,
-    var(--surface-muted) 25%,
-    color-mix(in oklab, var(--surface-muted) 55%, var(--surface)) 50%,
-    var(--surface-muted) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
-}
-
-/* 카테고리 칩처럼 가로로 넘치는 줄에서 스크롤바를 숨긴다. */
-.no-scrollbar {
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRightIcon, SparkIcon } from '@/components/icons';
 import { IdeaCard } from '@/components/IdeaCard';
 import { Button, ButtonLink, EmptyState } from '@/components/ui';
 import { getIdeaBatch, ideaRoundCount } from '@/lib/data';
@@ -39,13 +38,7 @@ export function BasicIdeas({ problem }: { problem: Problem }) {
   }
 
   return (
-    <div className="space-y-8">
-      {totalRounds > 1 && (
-        <p className="text-xs text-muted tabular-nums">
-          묶음 {(round % totalRounds) + 1} / {totalRounds}
-        </p>
-      )}
-
+    <div className="space-y-6">
       <ul className="grid gap-4 sm:grid-cols-2">
         {ideas.map((idea) => (
           <li key={idea.id}>
@@ -54,94 +47,57 @@ export function BasicIdeas({ problem }: { problem: Problem }) {
         ))}
       </ul>
 
-      {/*
-        변형별 행동 유도. hydration 전에는 어느 쪽도 그리지 않아 깜빡임을 막는다.
-        대신 같은 높이를 미리 잡아 두어 나중에 콘텐츠가 밀려 내려가지 않게 한다.
-      */}
-      <div className="min-h-[7.5rem]">
-        {hydrated && (
-          <>
-            {variantSpec.showPersonalizeCta && (
-              <CtaPanel
-                title="이 중에 만들고 싶은 게 없다면"
-                body="만들려는 형태와 보유 리소스에 맞춰 아이디어를 다시 좁혀 받아볼 수 있습니다."
-                action={
-                  <ButtonLink href={`/personalize?problem=${problem.id}`}>
-                    내 상황에 맞게 구체화
-                    <ArrowRightIcon />
-                  </ButtonLink>
-                }
-              />
-            )}
-
-            {variantSpec.showRefresh && (
-              <CtaPanel
-                title={wrapped ? '준비된 아이디어를 모두 보여드렸습니다' : '다른 방향도 있습니다'}
-                body={
-                  wrapped
-                    ? '계속 누르면 처음 묶음부터 다시 보여집니다.'
-                    : '마음에 드는 방향이 없다면 같은 문제에서 다른 해결 방향을 더 볼 수 있습니다.'
-                }
-                action={
-                  <Button variant="secondary" onClick={() => setRound((r) => r + 1)}>
-                    다른 아이디어 보기
-                  </Button>
-                }
-              />
-            )}
-
-            {!variantSpec.showPersonalizeCta && !variantSpec.showRefresh && (
-              <p className="kr-text rounded-2xl border border-dashed border-border px-5 py-6 text-sm text-muted">
-                이 문제에서 발견된 기본 아이디어입니다. 마음에 드는 아이디어는 저장해 두고
-                보관함에서 다시 확인할 수 있습니다.
+      {/* 변형별 행동 유도. hydration 전에는 어느 쪽도 그리지 않아 깜빡임을 막는다. */}
+      {hydrated && (
+        <div className="border-t border-border pt-6">
+          {variantSpec.showPersonalizeCta && (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <p className="kr-text max-w-md text-sm text-muted">
+                만들고 싶은 아이디어가 없다면, 만들려는 형태와 리소스에 맞게
+                좁혀서 다시 받아볼 수 있습니다.
               </p>
-            )}
-          </>
-        )}
-      </div>
+              <ButtonLink href={`/personalize?problem=${problem.id}`}>
+                내 상황에 맞게 구체화
+              </ButtonLink>
+            </div>
+          )}
 
-      <footer className="space-y-2 border-t border-border pt-6 text-xs text-muted">
-        <p className="kr-text flex items-start gap-1.5">
-          <SparkIcon className="mt-0.5 size-3.5 shrink-0 text-ai" />
-          <span>
-            아이디어는 AI가 만든 추천 후보이며 시장성이나 성공 가능성이 검증된 결과가
-            아닙니다.{' '}
-            <Link
-              href={`/problems/${problem.id}`}
-              className="focus-ring rounded font-medium text-foreground underline underline-offset-2"
-            >
-              이 아이디어들이 근거로 삼은 문제 보기
-            </Link>
-          </span>
-        </p>
-        {hydrated && (
-          <p className="kr-text">
-            현재 <strong className="font-semibold text-foreground">버전 {variant}</strong> ·{' '}
-            {variantSpec.label} — {variantSpec.description} 상단 &ldquo;아이디어 화면&rdquo;에서
-            다른 버전으로 전환할 수 있습니다.
-          </p>
-        )}
-      </footer>
-    </div>
-  );
-}
+          {variantSpec.showRefresh && (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <p className="kr-text max-w-md text-sm text-muted">
+                {wrapped
+                  ? '준비된 아이디어를 모두 보여드렸습니다. 계속 누르면 처음 묶음부터 다시 보여집니다.'
+                  : '마음에 드는 방향이 없다면 같은 문제에서 다른 해결 방향을 더 볼 수 있습니다.'}
+              </p>
+              <Button onClick={() => setRound((r) => r + 1)}>
+                다른 아이디어 보기
+              </Button>
+            </div>
+          )}
 
-function CtaPanel({
-  title,
-  body,
-  action,
-}: {
-  title: string;
-  body: string;
-  action: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-brand/25 bg-brand-soft/45 px-5 py-5">
-      <div className="min-w-0 max-w-md">
-        <p className="kr-text font-bold">{title}</p>
-        <p className="kr-text mt-1 text-sm text-muted">{body}</p>
-      </div>
-      {action}
+          {!variantSpec.showPersonalizeCta && !variantSpec.showRefresh && (
+            <p className="kr-text text-sm text-muted">
+              이 문제에서 발견된 기본 아이디어입니다. 마음에 드는 아이디어는
+              저장해 두고 보관함에서 다시 확인할 수 있습니다.
+            </p>
+          )}
+        </div>
+      )}
+
+      <p className="text-xs text-muted">
+        현재 <strong className="font-semibold text-foreground">버전 {variant}</strong>
+        {' · '}
+        {variantSpec.label} — {variantSpec.description} 상단에서 다른 버전으로
+        전환할 수 있습니다.
+      </p>
+
+      <p className="kr-text text-xs text-muted">
+        아이디어는 AI가 만든 추천 후보이며 시장성이나 성공 가능성이 검증된
+        결과가 아닙니다.{' '}
+        <Link href={`/problems/${problem.id}`} className="underline">
+          이 아이디어들이 근거로 삼은 문제 보기
+        </Link>
+      </p>
     </div>
   );
 }

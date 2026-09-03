@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRightIcon, CloseIcon } from '@/components/icons';
 import { Badge, Card } from '@/components/ui';
 import type { PersonalizationRun, SavedItem } from '@/lib/types';
 
@@ -33,30 +32,24 @@ export function SavedRow({
   onUnsave?: () => void;
 }) {
   return (
-    <Card interactive className="group flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0 flex-1">
+    <Card className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={item.kind === 'personalized' ? 'ai' : 'brand'}>
             {kindLabel(item.kind)}
           </Badge>
           <span className="text-xs text-muted">{formatDate(item.savedAt)} 저장</span>
         </div>
-        <Link
-          href={item.href}
-          className="focus-ring kr-text mt-2 flex items-center gap-1.5 rounded font-semibold transition-colors group-hover:text-brand-strong"
-        >
+        <Link href={item.href} className="mt-2 block font-semibold hover:underline">
           {item.title}
-          <ArrowRightIcon className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
         </Link>
         <p className="kr-text mt-1 text-sm text-muted">{item.subtitle}</p>
       </div>
       {onUnsave && (
         <button
           onClick={onUnsave}
-          title={`"${item.title}" 저장 해제`}
-          className="focus-ring inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-danger hover:text-danger"
+          className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:text-foreground"
         >
-          <CloseIcon className="size-3" />
           저장 해제
         </button>
       )}
@@ -72,18 +65,17 @@ export function summarizeRun(run: PersonalizationRun): string {
 
 export function RunRow({ run }: { run: PersonalizationRun }) {
   return (
-    <Card interactive className="group flex h-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-        <span>{formatDate(run.createdAt)} 실행</span>
-        <span className="tabular-nums">아이디어 {run.ideas.length}개</span>
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-muted">{formatDate(run.createdAt)} 실행</span>
+        <span className="text-xs text-muted">아이디어 {run.ideas.length}개</span>
       </div>
-      <p className="kr-text mt-2.5 text-sm leading-relaxed font-medium">{summarizeRun(run)}</p>
+      <p className="kr-text mt-2 text-sm font-medium">{summarizeRun(run)}</p>
       <Link
         href={`/personalize/${run.id}`}
-        className="focus-ring mt-auto inline-flex items-center gap-1 rounded pt-4 text-sm font-semibold text-brand hover:underline"
+        className="mt-3 inline-block text-sm font-semibold text-brand hover:underline"
       >
-        결과 다시 보기
-        <ArrowRightIcon className="size-3.5" />
+        결과 다시 보기 →
       </Link>
     </Card>
   );

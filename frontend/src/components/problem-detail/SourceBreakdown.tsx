@@ -1,4 +1,3 @@
-import { ExternalIcon } from '@/components/icons';
 import type { Source, SourcePlatform } from '@/lib/types';
 
 /**
@@ -20,54 +19,34 @@ export function SourceBreakdown({ sources }: { sources: Source[] }) {
   const platforms = [...byPlatform.entries()].sort((a, b) => b[1].caseCount - a[1].caseCount);
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-border bg-surface p-5">
-        {/* 전체 비중을 한 줄로 먼저 보여주고, 아래에서 플랫폼별로 나눈다. */}
-        <div
-          className="flex h-2.5 overflow-hidden rounded-full bg-surface-muted"
-          role="img"
-          aria-label={`플랫폼별 사례 비중: ${platforms
-            .map(([platform, bucket]) => `${platform} ${bucket.caseCount}건`)
-            .join(', ')}`}
-        >
-          {platforms.map(([platform, bucket], index) => (
-            <span
-              key={platform}
-              className="h-full bg-evidence"
-              style={{
-                width: `${totalCases > 0 ? (bucket.caseCount / totalCases) * 100 : 0}%`,
-                opacity: 1 - index * 0.18,
-              }}
-            />
-          ))}
-        </div>
-
-        <dl className="mt-4 space-y-3">
-          {platforms.map(([platform, bucket], index) => {
-            const share = totalCases > 0 ? Math.round((bucket.caseCount / totalCases) * 100) : 0;
-            return (
-              <div key={platform} className="flex items-center gap-3 text-sm">
-                <span
-                  aria-hidden
-                  className="size-2.5 shrink-0 rounded-full bg-evidence"
-                  style={{ opacity: 1 - index * 0.18 }}
-                />
-                <dt className="kr-text font-medium">{platform}</dt>
-                <dd className="ml-auto text-muted tabular-nums">
-                  {bucket.caseCount}건
-                  <span className="ml-2 font-semibold text-foreground">{share}%</span>
-                </dd>
+    <div className="space-y-5">
+      <div className="space-y-3">
+        {platforms.map(([platform, bucket]) => {
+          const share = totalCases > 0 ? Math.round((bucket.caseCount / totalCases) * 100) : 0;
+          return (
+            <div key={platform}>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">{platform}</span>
+                <span className="text-muted tabular-nums">
+                  {bucket.caseCount}건 · {share}%
+                </span>
               </div>
-            );
-          })}
-        </dl>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  className="h-full rounded-full bg-evidence"
+                  style={{ width: `${share}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <ul className="grid gap-2 sm:grid-cols-2">
         {sources.map((source) => (
           <li
             key={source.id}
-            className="kr-text flex items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm transition-colors hover:border-border-strong"
+            className="kr-text flex items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm"
           >
             <span className="flex min-w-0 flex-col">
               {source.url ? (
@@ -75,11 +54,9 @@ export function SourceBreakdown({ sources }: { sources: Source[] }) {
                   href={source.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="focus-ring inline-flex items-center gap-1 truncate rounded font-medium hover:text-brand-strong"
+                  className="truncate font-medium hover:text-brand"
                 >
-                  <span className="truncate">{source.name}</span>
-                  <ExternalIcon className="size-3 shrink-0" />
-                  <span className="sr-only">(새 창)</span>
+                  {source.name}
                 </a>
               ) : (
                 <span className="truncate font-medium">{source.name}</span>

@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { ArrowRightIcon } from '@/components/icons';
 import { Badge, Card } from '@/components/ui';
 import type { Problem } from '@/lib/types';
 
@@ -7,45 +6,33 @@ import type { Problem } from '@/lib/types';
 export function ProblemCard({ problem }: { problem: Problem }) {
   const leadEvidence = problem.evidence[0];
   const leadSource = problem.sources[0];
-  const otherSources = Math.max(problem.sources.length - 1, 0);
 
   return (
-    <Card interactive className="group flex h-full flex-col">
+    <Card className="flex h-full flex-col transition-colors hover:border-brand">
       <div className="flex items-start justify-between gap-3">
         <Badge tone="brand">{problem.category}</Badge>
         <span className="shrink-0 text-xs text-muted tabular-nums">
-          사례 <span className="font-semibold text-foreground">{problem.caseCount}</span>건
+          관련 사례 {problem.caseCount}건
         </span>
       </div>
 
-      <h3 className="kr-text mt-3 text-base leading-snug font-bold">
-        <Link
-          href={`/problems/${problem.id}`}
-          className="transition-colors group-hover:text-brand-strong"
-        >
-          {/* 카드 전체를 클릭 영역으로 만든다. 부모 li가 relative. */}
-          <span className="absolute inset-0 rounded-2xl" aria-hidden />
+      <h3 className="kr-text mt-3 text-base font-bold leading-snug">
+        <Link href={`/problems/${problem.id}`} className="hover:text-brand">
+          <span className="absolute inset-0" aria-hidden />
           {problem.title}
         </Link>
       </h3>
-      <p className="kr-text mt-2 text-sm leading-relaxed text-muted">{problem.oneLiner}</p>
+      <p className="kr-text mt-2 text-sm text-muted">{problem.oneLiner}</p>
 
       {leadEvidence && (
-        <p className="kr-text mt-4 border-l-2 border-evidence bg-evidence-soft/40 py-2 pr-2 pl-3 text-sm text-foreground/85">
+        <p className="kr-text mt-4 border-l-2 border-evidence pl-3 text-sm text-foreground/80">
           {leadEvidence.summary}
         </p>
       )}
 
-      <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-        <p className="kr-text text-xs text-muted">
-          {leadSource?.name ?? '출처 미상'}
-          {otherSources > 0 && ` 외 ${otherSources}곳`}
-        </p>
-        <span className="flex items-center gap-1 text-xs font-semibold text-brand opacity-0 transition-opacity group-hover:opacity-100">
-          근거 보기
-          <ArrowRightIcon className="size-3.5" />
-        </span>
-      </div>
+      <p className="mt-auto pt-4 text-xs text-muted">
+        대표 출처 {leadSource?.name ?? '—'} 외 {Math.max(problem.sources.length - 1, 0)}곳
+      </p>
     </Card>
   );
 }
