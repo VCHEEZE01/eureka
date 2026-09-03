@@ -6,8 +6,21 @@
 
 /* ── 문제 (F02, F03) ───────────────────────────────────────────── */
 
-/** MVP 활성 카테고리. PRD 9-TBD에 따라 확장 가능. */
-export const CATEGORIES = ['생산성/업무', '커리어/자기계발', '라이프스타일'] as const;
+/**
+ * 활성 카테고리.
+ * 앞의 3개는 PRD가 정한 MVP 카테고리이고,
+ * 뒤의 5개는 PRD 6절 F02가 "향후 데이터 확보 시 확장 가능"으로 든 임시 카테고리다.
+ */
+export const CATEGORIES = [
+  '생산성/업무',
+  '커리어/자기계발',
+  '라이프스타일',
+  '재테크/금융',
+  '건강',
+  '반려동물',
+  '육아',
+  '주거/생활',
+] as const;
 export type Category = (typeof CATEGORIES)[number];
 
 export const SORT_OPTIONS = ['latest', 'cases'] as const;

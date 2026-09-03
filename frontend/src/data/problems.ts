@@ -54,7 +54,7 @@ export const problems: Problem[] = [
       { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 18 },
     ],
     caseCount: 119,
-    relatedProblemIds: ['p-onboarding-docs'],
+    relatedProblemIds: ['p-onboarding-docs', 'p-status-report'],
     updatedAt: '2026-02-11',
   },
   {
@@ -96,7 +96,7 @@ export const problems: Problem[] = [
       { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 14 },
     ],
     caseCount: 78,
-    relatedProblemIds: ['p-handoff'],
+    relatedProblemIds: ['p-handoff', 'p-status-report'],
     updatedAt: '2026-02-03',
   },
   {
@@ -422,5 +422,478 @@ export const problems: Problem[] = [
     caseCount: 63,
     relatedProblemIds: ['p-subscription-waste', 'p-meal-planning'],
     updatedAt: '2026-02-14',
+  },
+  {
+    id: 'p-invest-start-trust',
+    title: '소액으로 투자를 시작하려는데 무엇을 믿어야 할지 모르겠다',
+    oneLiner:
+      '유튜브와 커뮤니티마다 추천 종목이 달라서 결국 아무것도 시작하지 못한다.',
+    category: '재테크/금융',
+    description:
+      '정보가 없어서가 아니라 서로 다른 말을 하는 정보가 너무 많아 무엇을 근거로 판단해야 할지 모른다는 이야기가 반복된다. 소액 투자를 시도했다가 손실을 본 뒤 판단 기준부터 다시 찾는 경우도 많다.',
+    context:
+      '사회초년생이나 재테크를 처음 시작하는 사람이 유튜브·커뮤니티·지인 추천 사이에서 무엇을 따라야 할지 고르는 시점에 나타난다.',
+    evidence: [
+      {
+        id: 'e-invest-start-trust-1',
+        summary:
+          '유튜브에서 추천한 종목과 커뮤니티 글이 정반대 의견이라 결국 아무것도 사지 못했다는 후기.',
+        sourceId: 's-invest-community',
+        postedAt: '2025-11-09',
+      },
+      {
+        id: 'e-invest-start-trust-2',
+        summary:
+          '증권사 앱을 깔아도 용어부터 이해가 안 돼 결국 지인에게 대신 물어봤다는 글.',
+        sourceId: 's-app-review',
+        postedAt: '2025-12-06',
+      },
+      {
+        id: 'e-invest-start-trust-3',
+        summary:
+          '소액으로 시작했다가 손실을 보고 나서야 애초에 무엇을 근거로 샀는지 스스로도 설명하지 못한다는 자각.',
+        excerpt: '"그냥 남들 따라 샀다"',
+        sourceId: 's-work-forum',
+        postedAt: '2026-01-14',
+      },
+      {
+        id: 'e-invest-start-trust-4',
+        summary:
+          '재테크 강의를 결제했지만 결국 강사가 추천하는 상품을 사라는 이야기였다는 불만.',
+        sourceId: 's-social',
+        postedAt: '2026-02-02',
+      },
+    ],
+    sources: [
+      { id: 's-invest-community', name: '재테크 커뮤니티 C', platform: '커뮤니티', caseCount: 34 },
+      { id: 's-work-forum', name: '직장인 포럼 B', platform: '커뮤니티', caseCount: 26 },
+      { id: 's-app-review', name: '앱스토어 리뷰', platform: '리뷰', caseCount: 19 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 15 },
+    ],
+    caseCount: 101,
+    relatedProblemIds: ['p-spending-review', 'p-subscription-waste'],
+    updatedAt: '2026-02-12',
+  },
+  {
+    id: 'p-spending-review',
+    title: '돈은 나갔는데 어디에 썼는지는 월말에야 안다',
+    oneLiner:
+      '카드 명세서를 받아보고 나서야 이번 달에 뭘 샀는지 기억을 되짚는다.',
+    category: '재테크/금융',
+    description:
+      '가계부 앱을 깔아도 결국 손으로 항목을 나누는 일이 귀찮아 며칠 쓰다 만다는 이야기가 반복된다. 소비를 줄이고 싶어도 무엇에 얼마를 쓰는지 모르니 어디부터 줄여야 할지도 알 수 없다는 토로가 나온다.',
+    context:
+      '여러 카드와 간편결제를 섞어 쓰며 소비 내역이 한곳에 모이지 않는 사람들에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-spending-review-1',
+        summary:
+          '가계부 앱을 세 번째 깔았지만 이번에도 일주일을 못 넘기고 손을 놨다는 후기.',
+        sourceId: 's-app-review',
+        postedAt: '2025-11-16',
+      },
+      {
+        id: 'e-spending-review-2',
+        summary:
+          '카드사 앱, 간편결제, 현금 지출이 각각 따로 남아 있어 합쳐서 보려면 일일이 옮겨 적어야 한다는 불만.',
+        sourceId: 's-invest-community',
+        postedAt: '2025-12-10',
+      },
+      {
+        id: 'e-spending-review-3',
+        summary:
+          '이번 달에 뭘 그렇게 많이 샀는지 명세서를 보고도 절반은 기억이 안 난다는 글.',
+        excerpt: '"이게 다 뭐였지"',
+        sourceId: 's-social',
+        postedAt: '2026-01-05',
+      },
+      {
+        id: 'e-spending-review-4',
+        summary:
+          '자동으로 카테고리를 나눠주는 기능을 써도 분류가 틀려서 결국 다시 손으로 고친다는 리뷰.',
+        sourceId: 's-work-forum',
+        postedAt: '2026-01-29',
+      },
+    ],
+    sources: [
+      { id: 's-app-review', name: '앱스토어 리뷰', platform: '리뷰', caseCount: 28 },
+      { id: 's-invest-community', name: '재테크 커뮤니티 C', platform: '커뮤니티', caseCount: 22 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 17 },
+      { id: 's-work-forum', name: '직장인 포럼 B', platform: '커뮤니티', caseCount: 14 },
+    ],
+    caseCount: 88,
+    relatedProblemIds: ['p-invest-start-trust', 'p-subscription-waste'],
+    updatedAt: '2026-02-06',
+  },
+  {
+    id: 'p-exercise-dropout',
+    title: '운동을 시작해도 2~3주면 어김없이 끊긴다',
+    oneLiner:
+      '헬스장 등록까지는 매번 하는데 한 달을 채워 다닌 적은 손에 꼽는다.',
+    category: '건강',
+    description:
+      '의지 부족이라기보다 처음 몇 주가 지나면 굳이 오늘 가야 할 이유가 사라진다는 이야기가 반복된다. 같이 갈 사람이나 확인해주는 사람이 없으면 흐지부지되는 패턴이 공통적으로 나타난다.',
+    context:
+      '새해나 여름을 앞두고 운동을 새로 시작했다가 3주 안팎에서 그만두는 사람들에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-exercise-dropout-1',
+        summary:
+          '헬스장 3개월권을 끊어놓고 실제로 간 건 열 번도 안 된다는 자조.',
+        sourceId: 's-health-community',
+        postedAt: '2025-11-11',
+      },
+      {
+        id: 'e-exercise-dropout-2',
+        summary:
+          '운동 기록 앱에 출석 스트릭이 끊기는 순간부터 아예 앱을 열지 않게 된다는 후기.',
+        sourceId: 's-app-review',
+        postedAt: '2025-12-15',
+      },
+      {
+        id: 'e-exercise-dropout-3',
+        summary:
+          '혼자 하는 운동은 아파도 안 아파도 그만두는 핑계가 똑같이 쉽다는 글.',
+        excerpt: '"핑계가 너무 쉽다"',
+        sourceId: 's-social',
+        postedAt: '2026-01-08',
+      },
+      {
+        id: 'e-exercise-dropout-4',
+        summary:
+          '같이 다니던 친구가 그만두자 본인도 자연스럽게 발길이 끊겼다는 사례.',
+        sourceId: 's-work-forum',
+        postedAt: '2026-02-01',
+      },
+    ],
+    sources: [
+      { id: 's-health-community', name: '건강 커뮤니티 G', platform: '커뮤니티', caseCount: 30 },
+      { id: 's-app-review', name: '앱스토어 리뷰', platform: '리뷰', caseCount: 24 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 18 },
+      { id: 's-work-forum', name: '직장인 포럼 B', platform: '커뮤니티', caseCount: 12 },
+    ],
+    caseCount: 90,
+    relatedProblemIds: ['p-symptom-search-anxiety', 'p-skill-learning-followthrough'],
+    updatedAt: '2026-02-09',
+  },
+  {
+    id: 'p-symptom-search-anxiety',
+    title: '증상을 검색할수록 불안만 커지고 판단은 못 한다',
+    oneLiner:
+      '두통 하나를 검색해도 최악의 케이스부터 눈에 들어와 병원에 가야 할지 그냥 넘겨도 될지 판단이 안 된다.',
+    category: '건강',
+    description:
+      '증상 검색 결과가 가벼운 원인부터 심각한 질환까지 뒤섞여 나와 정작 지금 상황에 맞는 판단은 스스로 하기 어렵다는 이야기가 반복된다. 병원에 가기도, 안 가기도 애매한 채로 며칠을 검색만 반복하는 경우가 많다.',
+    context:
+      '야간이나 주말처럼 병원 진료가 어려운 시간에 몸에 이상을 느낀 사람들에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-symptom-search-anxiety-1',
+        summary:
+          '검색할수록 무서운 결과만 상단에 떠서 오히려 잠을 설쳤다는 후기.',
+        sourceId: 's-health-community',
+        postedAt: '2025-11-24',
+      },
+      {
+        id: 'e-symptom-search-anxiety-2',
+        summary:
+          '같은 증상인데 사이트마다 원인 설명이 달라 결국 아무 결론도 못 내렸다는 글.',
+        excerpt: '"다 다른 소리만"',
+        sourceId: 's-social',
+        postedAt: '2025-12-20',
+      },
+      {
+        id: 'e-symptom-search-anxiety-3',
+        summary:
+          '응급실에 가야 할 정도인지 아닌지 판단이 안 서서 결국 날이 밝을 때까지 기다렸다는 사례.',
+        sourceId: 's-news',
+        postedAt: '2026-01-17',
+      },
+    ],
+    sources: [
+      { id: 's-health-community', name: '건강 커뮤니티 G', platform: '커뮤니티', caseCount: 26 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 20 },
+      { id: 's-news', name: '뉴스 댓글', platform: '뉴스', caseCount: 9 },
+    ],
+    caseCount: 61,
+    relatedProblemIds: ['p-exercise-dropout', 'p-baby-safety-search'],
+    updatedAt: '2026-01-30',
+  },
+  {
+    id: 'p-pet-vet-cost',
+    title: '동물병원에 가기 전에는 비용이 얼마 나올지 알 수 없다',
+    oneLiner:
+      '진료비를 물어봐도 병원마다 달라서 막상 가보기 전까지는 얼마가 나올지 짐작도 안 된다.',
+    category: '반려동물',
+    description:
+      '동물병원은 진료비 공시 의무가 사람 병원만큼 촘촘하지 않아 병원별 편차를 미리 알기 어렵다는 이야기가 반복된다. 급한 상황일수록 비용을 따질 여유가 없어 나중에 청구서를 받고 놀라는 경우가 많다.',
+    context:
+      '반려동물이 갑자기 아파 처음 가는 병원을 급하게 찾아야 하는 보호자들에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-pet-vet-cost-1',
+        summary:
+          '같은 검사를 다른 병원 두 곳에 문의했더니 비용이 두 배 넘게 차이가 났다는 후기.',
+        sourceId: 's-pet-cafe',
+        postedAt: '2025-11-13',
+      },
+      {
+        id: 'e-pet-vet-cost-2',
+        summary:
+          '수술이 필요하다는 말을 듣고서야 예상 비용을 들었는데 예산을 훨씬 넘어 당황했다는 글.',
+        excerpt: '"그제야 금액을 들었다"',
+        sourceId: 's-social',
+        postedAt: '2025-12-08',
+      },
+      {
+        id: 'e-pet-vet-cost-3',
+        summary:
+          '진료비가 부담스러워 병원을 옮겨 다니다 보니 진료 기록이 나뉘어 오히려 진단이 늦어졌다는 사례.',
+        sourceId: 's-pet-cafe',
+        postedAt: '2026-01-11',
+      },
+      {
+        id: 'e-pet-vet-cost-4',
+        summary:
+          '펫보험이 있어도 실제 청구 가능한 항목인지 병원에서 바로 확인해주지 않아 답답했다는 리뷰.',
+        sourceId: 's-app-review',
+        postedAt: '2026-02-03',
+      },
+    ],
+    sources: [
+      { id: 's-pet-cafe', name: '반려동물 카페 E', platform: '커뮤니티', caseCount: 33 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 21 },
+      { id: 's-app-review', name: '앱스토어 리뷰', platform: '리뷰', caseCount: 16 },
+    ],
+    caseCount: 77,
+    relatedProblemIds: ['p-pet-alone-anxiety', 'p-repair-quote-trust'],
+    updatedAt: '2026-02-07',
+  },
+  {
+    id: 'p-pet-alone-anxiety',
+    title: '혼자 두고 나온 반려동물이 괜찮은지 확인할 방법이 없다',
+    oneLiner:
+      '출근하고 나면 집에 혼자 있는 아이가 잘 있는지 퇴근 전까지는 알 도리가 없다.',
+    category: '반려동물',
+    description:
+      'CCTV를 설치해도 계속 들여다볼 수 없어 결국 확인하지 않게 된다는 이야기가 반복된다. 특히 분리불안이 있는 반려동물을 키우는 경우 외출 자체가 불안 요소가 된다는 토로가 많다.',
+    context:
+      '반려동물을 혼자 두고 장시간 외출·출근해야 하는 1인 가구, 맞벌이 가구에서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-pet-alone-anxiety-1',
+        summary:
+          '홈캠을 설치했지만 알림이 너무 자주 와서 결국 알림을 꺼버렸다는 후기.',
+        sourceId: 's-app-review',
+        postedAt: '2025-11-27',
+      },
+      {
+        id: 'e-pet-alone-anxiety-2',
+        summary:
+          '분리불안이 있는 강아지가 짖는 소리 때문에 이웃에게 항의를 받고 나서야 상태를 알았다는 사례.',
+        sourceId: 's-pet-cafe',
+        postedAt: '2025-12-22',
+      },
+      {
+        id: 'e-pet-alone-anxiety-3',
+        summary:
+          '회의 중에도 홈캠을 몰래 켜서 확인하다 정작 업무에 집중하지 못했다는 글.',
+        excerpt: '"몰래 계속 켜봄"',
+        sourceId: 's-social',
+        postedAt: '2026-01-19',
+      },
+    ],
+    sources: [
+      { id: 's-app-review', name: '앱스토어 리뷰', platform: '리뷰', caseCount: 22 },
+      { id: 's-pet-cafe', name: '반려동물 카페 E', platform: '커뮤니티', caseCount: 25 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 13 },
+    ],
+    caseCount: 66,
+    relatedProblemIds: ['p-pet-vet-cost', 'p-symptom-search-anxiety'],
+    updatedAt: '2026-02-13',
+  },
+  {
+    id: 'p-baby-safety-search',
+    title: '아이에게 써도 되는지 매번 검색하는데 답이 제각각이다',
+    oneLiner:
+      '이유식 재료 하나, 로션 하나도 검색하면 된다는 글과 안 된다는 글이 동시에 나온다.',
+    category: '육아',
+    description:
+      '육아 정보가 넘치지만 서로 다른 주장이 섞여 있어 결국 무엇을 믿어야 할지 부모가 다시 판단해야 한다는 이야기가 반복된다. 아이 건강과 직결된 문제라 잘못된 정보를 걸러내지 못하면 불안이 그대로 남는다는 토로가 많다.',
+    context:
+      '이유식, 육아용품, 상비약처럼 아이에게 처음 써보는 것을 결정해야 하는 초보 부모에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-baby-safety-search-1',
+        summary:
+          '같은 재료를 두고 어떤 글은 괜찮다 하고 어떤 글은 알레르기 위험이 있다고 해 결국 안 먹였다는 후기.',
+        sourceId: 's-parenting-community',
+        postedAt: '2025-11-06',
+      },
+      {
+        id: 'e-baby-safety-search-2',
+        summary:
+          '맘카페마다 추천하는 로션 브랜드가 달라 몇 개를 사서 번갈아 발라봤다는 글.',
+        sourceId: 's-social',
+        postedAt: '2025-12-13',
+      },
+      {
+        id: 'e-baby-safety-search-3',
+        summary:
+          '상비약 용량을 검색해도 사이트마다 기준이 달라 결국 약국에 다시 전화로 물어봤다는 사례.',
+        excerpt: '"결국 다시 전화함"',
+        sourceId: 's-parenting-community',
+        postedAt: '2026-01-21',
+      },
+      {
+        id: 'e-baby-safety-search-4',
+        summary:
+          '육아 정보 앱을 여러 개 깔아도 서로 다른 답을 주니 신뢰가 안 간다는 리뷰.',
+        sourceId: 's-app-review',
+        postedAt: '2026-02-05',
+      },
+    ],
+    sources: [
+      { id: 's-parenting-community', name: '육아 커뮤니티 D', platform: '커뮤니티', caseCount: 36 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 24 },
+      { id: 's-app-review', name: '앱스토어 리뷰', platform: '리뷰', caseCount: 15 },
+    ],
+    caseCount: 83,
+    relatedProblemIds: ['p-parenting-milestone-worry', 'p-symptom-search-anxiety'],
+    updatedAt: '2026-02-15',
+  },
+  {
+    id: 'p-parenting-milestone-worry',
+    title: '우리 아이만 늦는 건지 비교할 기준이 없다',
+    oneLiner: '또래 아이는 벌써 한다는데 우리 아이는 아직이라 매번 불안해진다.',
+    category: '육아',
+    description:
+      '발달 시기는 개인차가 크다는 걸 알면서도 비교할 만한 기준이 마땅치 않아 다른 부모 이야기에 더 흔들린다는 토로가 반복된다. 병원에 물어보기엔 애매하고 검색하기엔 정보가 흩어져 있어 판단을 미루는 경우가 많다.',
+    context:
+      '또래 아이를 키우는 부모들의 이야기나 맘카페 글을 접하며 발달 속도를 비교하게 되는 영유아 부모에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-parenting-milestone-worry-1',
+        summary:
+          '옆집 아이는 벌써 말을 하는데 우리 아이는 아직이라는 이야기를 듣고 하루 종일 불안했다는 후기.',
+        sourceId: 's-parenting-community',
+        postedAt: '2025-11-30',
+      },
+      {
+        id: 'e-parenting-milestone-worry-2',
+        summary:
+          '발달 체크리스트를 검색해도 기준이 제각각이라 어디에 맞춰야 할지 몰랐다는 글.',
+        excerpt: '"기준이 다 다름"',
+        sourceId: 's-social',
+        postedAt: '2025-12-27',
+      },
+      {
+        id: 'e-parenting-milestone-worry-3',
+        summary:
+          '병원에 물어보기엔 너무 사소한 것 같아 미루다가 몇 달을 그냥 흘려보냈다는 사례.',
+        sourceId: 's-news',
+        postedAt: '2026-01-24',
+      },
+    ],
+    sources: [
+      { id: 's-parenting-community', name: '육아 커뮤니티 D', platform: '커뮤니티', caseCount: 29 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 19 },
+      { id: 's-news', name: '뉴스 댓글', platform: '뉴스', caseCount: 10 },
+    ],
+    caseCount: 64,
+    relatedProblemIds: ['p-baby-safety-search', 'p-career-feedback'],
+    updatedAt: '2026-02-01',
+  },
+  {
+    id: 'p-moving-sequence',
+    title: '이사 절차를 매번 처음부터 다시 찾아본다',
+    oneLiner:
+      '전입신고부터 확정일자까지 순서를 몇 번을 이사해도 매번 검색부터 다시 시작한다.',
+    category: '주거/생활',
+    description:
+      '이사가 자주 있는 일이 아니다 보니 절차를 기억하지 못하고, 검색해도 지역이나 계약 형태에 따라 안내가 달라 헷갈린다는 이야기가 반복된다. 순서를 놓치면 불이익이 생길 수 있어 매번 처음부터 확인해야 한다는 부담이 크다.',
+    context:
+      '전세·월세 계약을 새로 하거나 거주지를 옮기는 세입자, 특히 이사 경험이 적은 사람들에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-moving-sequence-1',
+        summary:
+          '전입신고를 며칠 늦게 해서 확정일자 효력이 늦어질 뻔했다는 후기.',
+        sourceId: 's-realty-forum',
+        postedAt: '2025-11-17',
+      },
+      {
+        id: 'e-moving-sequence-2',
+        summary:
+          '관리비 정산, 인터넷 이전 설치, 우편물 주소 변경 같은 자잘한 일을 하나씩 빠뜨렸다가 뒤늦게 챙겼다는 글.',
+        sourceId: 's-social',
+        postedAt: '2025-12-11',
+      },
+      {
+        id: 'e-moving-sequence-3',
+        summary:
+          '지자체마다 안내 페이지가 달라 검색해도 지금 내 상황에 맞는 절차인지 확신이 안 섰다는 토로.',
+        excerpt: '"이게 내 경우 맞나"',
+        sourceId: 's-realty-forum',
+        postedAt: '2026-01-06',
+      },
+      {
+        id: 'e-moving-sequence-4',
+        summary:
+          '이사 체크리스트 앱을 써도 지역 특성이 반영 안 돼 결국 따로 검색을 병행했다는 리뷰.',
+        sourceId: 's-app-review',
+        postedAt: '2026-01-26',
+      },
+    ],
+    sources: [
+      { id: 's-realty-forum', name: '부동산 포럼 F', platform: '커뮤니티', caseCount: 27 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 18 },
+      { id: 's-app-review', name: '앱스토어 리뷰', platform: '리뷰', caseCount: 12 },
+    ],
+    caseCount: 63,
+    relatedProblemIds: ['p-repair-quote-trust', 'p-home-maintenance'],
+    updatedAt: '2026-02-04',
+  },
+  {
+    id: 'p-repair-quote-trust',
+    title: '집 수리 견적이 적정한지 판단할 근거가 없다',
+    oneLiner: '업체 견적을 받아도 이게 비싼 건지 적당한 건지 비교할 방법이 없다.',
+    category: '주거/생활',
+    description:
+      '같은 수리를 두고 업체마다 부르는 금액이 크게 달라 무엇을 기준으로 골라야 할지 모른다는 이야기가 반복된다. 급하게 고쳐야 하는 상황일수록 비교할 시간이 없어 일단 아는 업체나 처음 연락한 업체로 결정하는 경우가 많다.',
+    context:
+      '누수, 보일러 고장처럼 급하게 수리 업체를 불러야 하는 자가·임차 거주자에게서 관찰된다.',
+    evidence: [
+      {
+        id: 'e-repair-quote-trust-1',
+        summary:
+          '같은 누수 수리를 두고 업체마다 견적이 두 배 넘게 차이가 나 무엇이 정상 가격인지 알 수 없었다는 후기.',
+        sourceId: 's-realty-forum',
+        postedAt: '2025-12-02',
+      },
+      {
+        id: 'e-repair-quote-trust-2',
+        summary:
+          '견적서에 항목만 나열되어 있고 단가 근거가 없어 그대로 믿고 결제할 수밖에 없었다는 글.',
+        excerpt: '"근거가 아예 없음"',
+        sourceId: 's-social',
+        postedAt: '2026-01-13',
+      },
+      {
+        id: 'e-repair-quote-trust-3',
+        summary:
+          '급하게 부른 업체가 수리 후 추가 비용을 요구해 처음 견적과 최종 금액이 달랐다는 사례.',
+        sourceId: 's-news',
+        postedAt: '2026-02-08',
+      },
+    ],
+    sources: [
+      { id: 's-realty-forum', name: '부동산 포럼 F', platform: '커뮤니티', caseCount: 24 },
+      { id: 's-social', name: '소셜 타임라인', platform: '소셜', caseCount: 16 },
+      { id: 's-news', name: '뉴스 댓글', platform: '뉴스', caseCount: 11 },
+    ],
+    caseCount: 58,
+    relatedProblemIds: ['p-moving-sequence', 'p-pet-vet-cost'],
+    updatedAt: '2026-02-10',
   },
 ];
