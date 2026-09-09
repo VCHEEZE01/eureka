@@ -29,21 +29,41 @@ from pydantic import BaseModel, Field
 
 
 class Category(str, Enum):
-    """PRD F03: MVP는 3개로 시작한다."""
+    """팀 회의(2026-09-09)로 5개 확정. docs/DATA_SPEC.md 1절."""
 
-    PRODUCTIVITY = "생산성/업무"
-    CAREER = "커리어/자기계발"
+    FINANCE = "금융"
+    HEALTHCARE = "헬스케어"
     LIFESTYLE = "라이프스타일"
+    IT_PRODUCTIVITY = "IT/생산성"
+    EDUCATION_CAREER = "교육/커리어"
 
 
 class SourceKind(str, Enum):
-    """PRD F02: 온보딩에서 고르는 수집 범위."""
+    """
+    온보딩에서 고르는 것은 수집 범위가 아니라 표시 필터다 (docs/DATA_SPEC.md 0절).
+    배치는 항상 전체 출처를 수집한다.
+    """
 
-    COMMUNITY = "커뮤니티"
-    BLOG = "블로그"
-    REVIEW = "리뷰"
     NEWS = "뉴스"
     SOCIAL = "소셜"
+    BLOG = "블로그"
+    PUBLIC_DATA = "공공데이터"
+    # 화면에 노출하지 않는다. 지식iN·카페용 — 수집 여부는 미결정(DATA_SPEC 6절)
+    COMMUNITY = "커뮤니티"
+
+
+class CollectMode(str, Enum):
+    """어느 경로로 수집됐는가 (DATA_COLLECTION 3-1)."""
+
+    BATCH = "batch"
+    REALTIME = "realtime"
+
+
+class LicensePolicy(str, Enum):
+    """발췌 허용 여부 (DATA_COLLECTION 3-1·3-2)."""
+
+    SUMMARY_ONLY = "summary-only"
+    EXCERPT_OK = "excerpt-ok"
 
 
 # ══════════════════════════════════════════════
@@ -76,6 +96,12 @@ class RawItem(BaseModel):
     posted_at: Optional[date] = None
     collected_at: datetime
     query_keyword: str = Field(description="어떤 검색어로 걸렸는지")
+    # ↓ DATA_COLLECTION 3-1의 공통 필드. 전부 기본값이라 기존 코드가 깨지지 않는다.
+    content_hash: str = Field(
+        default="", description="정제된 title+snippet의 해시. 중복 판정 전용"
+    )
+    collected_by: CollectMode = CollectMode.BATCH
+    license: LicensePolicy = LicensePolicy.SUMMARY_ONLY
 
 
 # ══════════════════════════════════════════════
@@ -92,6 +118,15 @@ class Judgement(BaseModel):
         default=None, description="불편을 한 문장으로. is_pain=False면 None"
     )
     confidence: Literal["높음", "중간", "낮음"]
+    # ↓ 화면의 불만도·필요도 재료 (docs/DATA_SPEC.md 4절).
+    #   ★ 숫자가 아니라 라벨이다. 점수는 ③이 이 라벨을 세서 만든다.
+    severity: Optional[Literal["높음", "중간", "낮음"]] = Field(
+        default=None, description="불편 강도. 불만도 집계의 재료. 판정 못 했으면 None"
+    )
+    has_need_signal: bool = Field(
+        default=False,
+        description="결핍 신호(있었으면·아쉽·없어서·개선됐으면) 등장 여부. 필요도 집계의 재료",
+    )
 
 
 class ProblemCandidate(BaseModel):

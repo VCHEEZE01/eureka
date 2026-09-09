@@ -10,11 +10,20 @@
 
 /* ── 공통 ─────────────────────────────────────── */
 
-/** models.py: Category */
-export type Category = '생산성/업무' | '커리어/자기계발' | '라이프스타일';
+/** models.py: Category — 팀 회의(2026-09-09)로 5개 확정 */
+export type Category =
+  | '금융'
+  | '헬스케어'
+  | '라이프스타일'
+  | 'IT/생산성'
+  | '교육/커리어';
 
-/** models.py: SourceKind */
-export type SourceKind = '커뮤니티' | '블로그' | '리뷰' | '뉴스' | '소셜';
+/**
+ * models.py: SourceKind
+ * 온보딩에서 고르는 것은 수집 범위가 아니라 표시 필터다 (docs/DATA_SPEC.md 0절).
+ * '커뮤니티'는 화면에 노출하지 않는다 — 지식iN·카페용.
+ */
+export type SourceKind = '뉴스' | '소셜' | '블로그' | '공공데이터' | '커뮤니티';
 
 /* ── 문제 ─────────────────────────────────────── */
 
