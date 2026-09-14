@@ -20,19 +20,35 @@ import typing
 
 import pytest
 
+from pydantic import BaseModel
+
 from app.prompts.common_prompts import COMMON_RULES
 from app.schemas.models import (
     Category,
+    Evidence,
+    Idea,
     Judgement,
     Problem,
     ProblemCandidate,
+    ProblemDraft,
     RawItem,
+    ReviewResult,
     SearchQuery,
 )
 from conftest import AGGREGATE_NUMBER_RE, find_aggregate_numbers
 
 # LLM이 채우는 모델 — 여기엔 숫자가 있으면 안 된다
-LLM_FILLED_MODELS = [Judgement, ProblemCandidate, SearchQuery]
+# ★ ProblemDraft·Evidence·ReviewResult·Idea 도 LLM 산출물이다. 빠뜨리면
+#   구멍이 된다 (2026-09-11 설계 검증에서 발견).
+LLM_FILLED_MODELS = [
+    Judgement,
+    ProblemCandidate,
+    SearchQuery,
+    ProblemDraft,
+    Evidence,
+    ReviewResult,
+    Idea,
+]
 
 # 집계값·메타를 담는 모델 — 숫자가 있어야 정상이다
 COUNTING_MODELS = [Problem, RawItem]
@@ -52,6 +68,11 @@ def _has_number(annotation) -> bool:
         return False
     if annotation in (int, float):
         return True
+    # ★ 중첩된 pydantic 모델로 내려간다. ProblemSignals 같은 "숫자 덩어리
+    #   모델"을 LLM이 채우는 모델(위 LLM_FILLED_MODELS)에 붙이는 실수를
+    #   여기서 막는다. get_args 만으로는 BaseModel 서브클래스 내부를 못 본다.
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return bool(_numeric_fields(annotation))
     return any(_has_number(a) for a in typing.get_args(annotation))
 
 
@@ -90,6 +111,44 @@ def test_bool_is_not_treated_as_number():
     """has_need_signal 은 bool 이다. 숫자로 오인해 잡으면 안 된다."""
     assert "has_need_signal" in Judgement.model_fields
     assert _numeric_fields(Judgement) == []
+
+
+def test_signals_live_only_on_problem():
+    """
+    ★ 집계 덩어리(ProblemSignals)는 Problem 에만 붙는다.
+
+    ProblemDraft 등 LLM 이 채우는 모델에 signals 필드를 다는 순간
+    test_llm_filled_models_have_no_numeric_fields 가 위 _has_number 의
+    중첩 재귀 덕분에 잡아내지만, 필드 이름 자체를 막아 의도를 명확히 한다.
+    """
+    assert "signals" in Problem.model_fields
+    for model in LLM_FILLED_MODELS:
+        assert "signals" not in model.model_fields, (
+            f"{model.__name__} 에 signals 를 달면 안 된다 — 집계는 Problem 에만"
+        )
+
+
+def test_payment_signal_is_a_bool_not_a_count():
+    """
+    has_payment_signal 은 bool 이다. "payment_count" 같은 집계 필드로
+    바꾸려는 시도를 막는다 — 지불 신호도 세는 건 DB(aggregate_tool) 몫이다.
+    """
+    assert "has_payment_signal" in Judgement.model_fields
+    assert Judgement.model_fields["has_payment_signal"].annotation is bool
+    assert _numeric_fields(Judgement) == []
+
+
+def test_complexity_note_is_prose_not_a_grade():
+    """
+    ③ "문제의 복잡도"는 서술이다. complexity_score·complexity_level 같은
+    점수·등급 필드를 만들지 못하게 고정한다 (DATA_SPEC 4절 원칙).
+    """
+    assert "complexity_note" in ProblemDraft.model_fields
+    assert ProblemDraft.model_fields["complexity_note"].annotation is str
+    forbidden = {"complexity_score", "complexity_level", "complexity_grade"}
+    assert not forbidden & set(ProblemDraft.model_fields), (
+        "complexity_note 는 서술형이어야 한다. 점수·등급 필드를 추가하지 마라."
+    )
 
 
 # ══════════════════════════════════════════════

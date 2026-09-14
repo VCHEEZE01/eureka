@@ -9,6 +9,8 @@
     settings.NAVER_DAILY_CAP
 """
 
+import json
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Optional
@@ -32,8 +34,10 @@ class Settings(BaseSettings):
     KAKAO_REST_API_KEY: str = ""
     PUBLIC_DATA_KEY: str = ""
 
-    # ── LLM (포텐스닷 게이트웨이) ────────────────
-    LLM_PROVIDER: Literal["potens", "echo"] = "potens"
+    # ── LLM (포텐스닷 / Gemini) ─────────────────
+    LLM_PROVIDER: Literal["potens", "gemini", "echo"] = "potens"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     LLM_BASE_URL: str = ""
     LLM_API_KEY: str = ""
     LLM_MODEL: str = ""
@@ -63,11 +67,38 @@ class Settings(BaseSettings):
     CLUSTER_THRESHOLD_EMBED: float = 0.80
     MIN_GROUP_SIZE: int = 5  # DATA_COLLECTION 6절: 유사한 글 5건 이상이면 후보
 
+    # ── 근거 조립 (②′ EvidenceAgent) ────────────
+    # ★ 문서 11절이 "데이터를 보고 조정"이라고 남긴 값이다. 코드에 박지 말 것.
+    # docs/DATA_COLLECTION.md 6절 게시 기준.
+    PUBLISH_MIN_CASES: int = 20  # 관련 사례
+    PUBLISH_MIN_SOURCES: int = 3  # 서로 다른 출처 — 문서가 "핵심"이라고 한 조건
+    PUBLISH_MIN_EVIDENCE: int = 3  # 근거로 쓸 요약
+    EVIDENCE_SHOW_MAX: int = 5  # 화면에 보일 근거 상한
+    EVIDENCE_LOOKBACK_WEEKS: int = 8  # 원문을 되짚을 주차 창
+
+    # ★ 라벨 분포를 화면에 그릴 최소 표본. 미만이면 "표본이 부족합니다"로 대체한다.
+    #   "1건 중 1건 = 100%" 는 분모를 붙여도 오해를 부른다.
+    MIN_LABELED_TO_SHOW: int = 3
+
     # ── 저장 ────────────────────────────────────
     CORPUS_DIR: Path = _BACKEND_ROOT / "data" / "corpus"
     CORPUS_KEEP_SNIPPET: bool = True
 
     DATABASE_URL: str = "sqlite:///./eureka.db"
+    PROBLEMS_DIR: Path = _BACKEND_ROOT / "data" / "problems"
+    COLLECTIONS_DIR: Path = _BACKEND_ROOT / "data" / "collections"
+    # None preserves the original batch quota path. Target workers explicitly share the parent corpus quota.
+    SEARCH_QUOTA_DIR: Optional[Path] = None
+    COLLECTION_TIMEOUT_SEC: int = 3600
+    COLLECTION_QUERY_BUDGET: int = 120
+    COLLECTION_ITEMS_PER_QUERY: int = 20
+    COLLECTION_JUDGE_PER_CATEGORY: int = 1000
+    COLLECTION_JUDGE_BUDGET: int = 2400
+    COLLECTION_PROBLEM_BUDGET: int = 20
+    COLLECTION_LLM_CALL_BUDGET: int = 200
+    COLLECTION_REUSE_SEC: int = 3600
+    REFERENCE_HTML_PATH: Path = _BACKEND_ROOT.parent / "Frontend" / "eureka-공유용.html"
+    API_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     # ── 방어 ────────────────────────────────────
 
@@ -83,11 +114,26 @@ class Settings(BaseSettings):
             return ""
         return v
 
+    @field_validator("COLLECTION_QUERY_BUDGET", "COLLECTION_ITEMS_PER_QUERY", "COLLECTION_JUDGE_PER_CATEGORY",
+                     "COLLECTION_JUDGE_BUDGET", "COLLECTION_PROBLEM_BUDGET", "COLLECTION_LLM_CALL_BUDGET",
+                     "COLLECTION_TIMEOUT_SEC", mode="after")
+    @classmethod
+    def _collection_budgets(cls, value: int, info):
+        ceilings = {"COLLECTION_QUERY_BUDGET": 1000, "COLLECTION_ITEMS_PER_QUERY": 100,
+                    "COLLECTION_JUDGE_PER_CATEGORY": 1000, "COLLECTION_JUDGE_BUDGET": 5000,
+                    "COLLECTION_PROBLEM_BUDGET": 50, "COLLECTION_LLM_CALL_BUDGET": 500,
+                    "COLLECTION_TIMEOUT_SEC": 7200}
+        if not 1 <= value <= ceilings[info.field_name]:
+            raise ValueError(f"{info.field_name}은 1부터 {ceilings[info.field_name]} 사이여야 합니다")
+        return value
+
     # ── 파생 ────────────────────────────────────
 
     @property
     def judge_model(self) -> str:
         """판별용 모델. 따로 안 정했으면 기본 모델을 쓴다."""
+        if self.LLM_PROVIDER == "gemini":
+            return self.GEMINI_MODEL
         return self.LLM_MODEL_JUDGE or self.LLM_MODEL
 
     def cluster_threshold(self) -> float:
@@ -105,7 +151,10 @@ class Settings(BaseSettings):
             "NAVER_CLIENT_SECRET": self.NAVER_CLIENT_SECRET,
             "KAKAO_REST_API_KEY": self.KAKAO_REST_API_KEY,
         }
-        if not self.LLM_DRY_RUN:
+        if not self.LLM_DRY_RUN and self.LLM_PROVIDER == "gemini":
+            need["GEMINI_API_KEY"] = self.GEMINI_API_KEY
+            need["GEMINI_MODEL"] = self.GEMINI_MODEL
+        elif not self.LLM_DRY_RUN and self.LLM_PROVIDER != "echo":
             need["LLM_BASE_URL"] = self.LLM_BASE_URL
             need["LLM_API_KEY"] = self.LLM_API_KEY
             need["LLM_MODEL"] = self.LLM_MODEL
@@ -118,3 +167,17 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+
+def child_process_environment() -> dict[str, str]:
+    """독립 수집 worker에 현재 설정을 전달한다. 비밀값은 로그·응답에 출력하지 않는다."""
+    env = os.environ.copy()
+    for name, value in settings.model_dump(mode="json").items():
+        if value is None:
+            env.pop(name, None)
+        elif isinstance(value, (list, dict, bool)):
+            env[name] = json.dumps(value, ensure_ascii=False)
+        else:
+            env[name] = str(value)
+    return env

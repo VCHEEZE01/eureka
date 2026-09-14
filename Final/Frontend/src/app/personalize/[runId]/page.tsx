@@ -1,6 +1,6 @@
-import { PersonalizeResultScreen } from '@/screens/Personalize';
+import { notFound } from 'next/navigation';
 
-export default async function Page({ params }: { params: Promise<{ runId: string }> }) {
-  const { runId } = await params;
-  return <PersonalizeResultScreen id={runId} />;
+/** 개인화 결과(F07)는 현재 잠금 기능이다. */
+export default function Page() {
+  notFound();
 }

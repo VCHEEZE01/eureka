@@ -296,6 +296,114 @@ def test_load_pending_candidates_on_empty_corpus():
 
 
 # ══════════════════════════════════════════════
+# 승격된 문제 후보 (candidates) — ②′ 근거 조립기가 읽는다
+# ══════════════════════════════════════════════
+
+
+def test_save_and_load_candidates_round_trip(corpus_dir):
+    groups = [_candidate("c1"), _candidate("c2")]
+    ct.save_candidates(groups, Category.FINANCE, week="2026-W37")
+
+    assert (corpus_dir / "candidates" / "2026-W37" / "금융.jsonl").exists()
+    assert ct.load_candidates(week="2026-W37", category=Category.FINANCE) == groups
+
+
+def test_candidates_append_only():
+    ct.save_candidates([_candidate("c1")], Category.FINANCE, week="2026-W37")
+    ct.save_candidates([_candidate("c2")], Category.FINANCE, week="2026-W37")
+
+    assert [g.id for g in ct.load_candidates(week="2026-W37")] == ["c1", "c2"]
+
+
+def test_save_candidates_empty_list_is_noop(corpus_dir):
+    ct.save_candidates([], Category.FINANCE)
+    assert ct.load_candidates() == []
+
+
+def test_load_candidates_splits_by_category_and_week():
+    ct.save_candidates([_candidate("f1")], Category.FINANCE, week="2026-W37")
+    ct.save_candidates([_candidate("h1")], Category.HEALTHCARE, week="2026-W37")
+    ct.save_candidates([_candidate("f2")], Category.FINANCE, week="2026-W38")
+
+    assert [g.id for g in ct.load_candidates(category=Category.FINANCE)] == ["f1", "f2"]
+    assert [g.id for g in ct.load_candidates(week="2026-W37")] == ["f1", "h1"]
+    assert [g.id for g in ct.load_candidates(week="2026-W38", category=Category.FINANCE)] == ["f2"]
+
+
+def test_load_candidates_on_empty_corpus():
+    assert ct.load_candidates() == []
+
+
+# ══════════════════════════════════════════════
+# id 로 원문·판정 되짚기 — 전체 스캔 1회
+# ══════════════════════════════════════════════
+
+
+def test_load_raw_items_by_ids_finds_across_weeks(make_raw_item):
+    ct.save_raw_items(
+        [make_raw_item(id="a", collected_at=datetime(2026, 9, 9, 3))], category=Category.FINANCE
+    )
+    ct.save_raw_items(
+        [make_raw_item(id="b", collected_at=datetime(2026, 9, 2, 3))], category=Category.FINANCE
+    )
+
+    found = ct.load_raw_items_by_ids(["a", "b"], weeks=4)
+
+    assert set(found) == {"a", "b"}
+    assert found["a"].id == "a"
+
+
+def test_load_raw_items_by_ids_ignores_ids_not_requested(make_raw_item):
+    ct.save_raw_items(
+        [make_raw_item(id="a"), make_raw_item(id="b")], category=Category.FINANCE
+    )
+
+    found = ct.load_raw_items_by_ids(["a"])
+
+    assert set(found) == {"a"}
+
+
+def test_load_raw_items_by_ids_outside_weeks_window_is_not_found(make_raw_item):
+    old_week = ct.recent_weeks(20)[19]
+    old_date = datetime.strptime(old_week + "-1", "%G-W%V-%u")
+    ct.save_raw_items([make_raw_item(id="old", collected_at=old_date)], category=Category.FINANCE)
+
+    found = ct.load_raw_items_by_ids(["old"], weeks=2)
+
+    assert found == {}
+
+
+def test_load_raw_items_by_ids_empty_ids_is_noop(corpus_dir):
+    assert ct.load_raw_items_by_ids([]) == {}
+
+
+def test_load_judgements_by_ids_finds_by_raw_item_id(make_judgement):
+    ct.save_judgements(
+        [make_judgement(raw_item_id="a"), make_judgement(raw_item_id="b")],
+        Category.FINANCE,
+        week="2026-W37",
+    )
+
+    found = ct.load_judgements_by_ids(["a"], weeks=4)
+
+    assert set(found) == {"a"}
+    assert found["a"].raw_item_id == "a"
+
+
+def test_load_judgements_by_ids_outside_weeks_window_is_not_found(make_judgement):
+    old_week = ct.recent_weeks(20)[19]
+    ct.save_judgements([make_judgement(raw_item_id="old")], Category.FINANCE, week=old_week)
+
+    found = ct.load_judgements_by_ids(["old"], weeks=2)
+
+    assert found == {}
+
+
+def test_load_judgements_by_ids_empty_ids_is_noop(corpus_dir):
+    assert ct.load_judgements_by_ids([]) == {}
+
+
+# ══════════════════════════════════════════════
 # 매니페스트
 # ══════════════════════════════════════════════
 

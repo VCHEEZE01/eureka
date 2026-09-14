@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>유레카 · 에이전트 설계 지도</title>
+<style>
+:root{--ink:#1d2c32;--muted:#607178;--paper:#f6f5ef;--white:#fffefa;--line:#d8ded9;--teal:#186b61;--teal-soft:#e6f0eb;--blue:#265c91;--blue-soft:#eaf1f9;--amber:#916119;--amber-soft:#faf0d9;--gray:#eef0ef;--red:#993f37;--serif:Georgia,'Times New Roman',serif;--sans:Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65}button,input{font:inherit}button,a,input{touch-action:manipulation}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #227bda;outline-offset:4px}button{color:inherit}a{color:var(--blue);text-underline-offset:3px}.shell{max-width:1370px;margin:auto;padding:0 42px}.mast{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:25px 0 20px;border-bottom:1px solid var(--ink)}.wordmark{font-size:23px;font-weight:800;letter-spacing:-1px}.wordmark span{font-size:11px;letter-spacing:2px;font-weight:500;display:block;color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap}.utility{background:transparent;border:1px solid var(--line);border-radius:5px;padding:7px 13px;font-size:12px}.utility:hover{background:white}.intro{display:flex;align-items:flex-end;justify-content:space-between;gap:35px;margin:30px 0 24px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--teal);margin:0 0 8px}h1{font-size:clamp(24px,3.3vw,39px);line-height:1.3;letter-spacing:-1.4px;margin:0 0 10px}h2{font-size:23px;letter-spacing:-.7px;margin:0 0 10px}h3{font-size:16px;letter-spacing:-.3px;margin:0 0 8px}p{margin:0 0 12px}.muted{color:var(--muted)}.small{font-size:12px}.intro-copy{max-width:740px;color:var(--muted);margin:0}.edition{text-align:right;flex-shrink:0;font-size:12px;color:var(--muted)}.statusline{display:flex;align-items:flex-start;gap:12px;background:var(--teal-soft);border-left:3px solid var(--teal);padding:14px 17px;font-size:13px;margin-bottom:26px}.statusline strong{white-space:nowrap}.tabs{display:flex;border-bottom:1px solid var(--line);gap:23px;margin-bottom:25px;overflow-x:auto}.tab{background:transparent;border:0;border-bottom:3px solid transparent;padding:10px 0 13px;white-space:nowrap;color:var(--muted);font-size:14px;font-weight:600}.tab[aria-selected=true]{border-color:var(--teal);color:var(--teal)}[hidden]{display:none!important}.tab-panel{padding-bottom:42px;animation:appear .18s ease}.sectionline{display:flex;align-items:baseline;justify-content:space-between;gap:15px;margin-bottom:16px}.sectionline h2{margin:0}.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)}.legend span:before{content:'';display:inline-block;width:7px;height:7px;background:var(--teal);border-radius:50%;margin-right:6px}.legend .llm:before{background:var(--blue)}.legend .work:before{background:var(--amber)}.workflow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px;margin:21px 0}.node{position:relative;text-align:left;background:var(--white);border:1px solid var(--line);border-top:3px solid var(--teal);border-radius:4px;padding:17px 15px;min-height:174px;transition:border-color .15s,box-shadow .15s}.node:not(:last-child):after{content:'→';position:absolute;right:-19px;top:69px;color:var(--muted);font-size:17px}.node[aria-pressed=true]{border-color:var(--teal);box-shadow:0 0 0 2px #186b6118}.node[data-kind=llm]{border-top-color:var(--blue)}.node[data-kind=work]{border-top-color:var(--amber)}.node .num{font-family:var(--serif);font-size:28px;line-height:1;color:var(--muted)}.node .name{display:block;font-size:16px;font-weight:700;margin:12px 0 4px}.node .desc{display:block;color:var(--muted);font-size:12px;min-height:37px}.badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.1px;background:var(--gray);color:var(--muted);vertical-align:middle}.badge.live,.badge.confirmed{background:var(--teal-soft);color:var(--teal)}.badge.llm,.badge.document{background:var(--blue-soft);color:var(--blue)}.badge.progress,.badge.temporary,.badge.pending{background:var(--amber-soft);color:var(--amber)}.badge.inference{background:#efebf3;color:#665370}.node .badge{margin-top:10px}.boundary{display:flex;align-items:center;gap:13px;font-size:12px;border-top:1px dashed #b5c3bc;padding:10px 0 0;color:var(--muted)}.boundary span:last-child{margin-left:auto}.lock{white-space:nowrap;background:#e7e9e7;padding:5px 9px;border-radius:4px}.inspect{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(240px,1fr);border:1px solid var(--line);background:var(--white);margin-top:25px;border-radius:5px}.inspect-main{padding:26px 29px}.inspect-side{background:#f0f3ef;border-left:1px solid var(--line);padding:26px}.inspect-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}.inspect-head h2{margin:0}.step-subtitle{color:var(--muted);margin-bottom:21px}.io{display:grid;grid-template-columns:1fr 1fr;gap:23px;margin:20px 0}.io .label{font-size:10px;text-transform:uppercase;letter-spacing:1.3px;color:var(--muted);font-weight:700}.io strong{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;overflow-wrap:anywhere;margin:3px 0 5px}.io p{font-size:13px;margin:0}.sequence{padding:0;margin:0;list-style:none;counter-reset:step}.sequence li{position:relative;padding:0 0 15px 30px;font-size:13px;counter-increment:step}.sequence li:before{content:counter(step);position:absolute;left:0;top:2px;width:20px;height:20px;border-radius:50%;font-size:10px;text-align:center;line-height:20px;background:var(--teal-soft);color:var(--teal)}.sequence li:last-child{padding-bottom:0}.note{padding-top:15px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.inspect-side h3{font-size:13px}.inspect-side ul{padding-left:17px;margin:7px 0 20px;font-size:12px}.inspect-side li{margin:8px 0}.code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;overflow-wrap:anywhere;line-height:1.7}.subheading{margin:32px 0 15px}.ownership{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:5px;overflow:hidden}.ownership>div{padding:22px 25px;background:var(--white)}.ownership>div+div{border-left:1px solid var(--line);background:#eff3f5}.ownership h3{display:flex;align-items:center;gap:9px}.ownership p{font-size:13px;margin-bottom:0}.pilot{display:grid;grid-template-columns:1fr 2fr;gap:35px;padding:26px 0;border-top:1px solid var(--line);margin-top:30px}.pilot h3{font-size:19px}.funnel{display:flex;align-items:center;gap:12px;justify-content:space-between}.funnel>div{flex:1;border-top:2px solid #98b7aa;padding-top:8px}.funnel b{font-size:30px;display:block;line-height:1.3;font-family:var(--serif)}.funnel span{font-size:11px;color:var(--muted)}.funnel>i{color:#adb5af;font-style:normal}.callout{padding:15px 18px;background:var(--amber-soft);border-left:3px solid #b89145;font-size:13px;margin:18px 0}.map-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line);background:var(--white);border-radius:5px;overflow:hidden}.mapping{padding:23px 25px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:28px 1fr;gap:13px}.mapping:nth-child(odd){border-right:1px solid var(--line)}.mapping:nth-last-child(-n+2){border-bottom:0}.mapping .index{font-size:20px;color:var(--teal);font-family:var(--serif)}.mapping p{font-size:13px;margin-bottom:8px}.mapping code{font-size:11px;overflow-wrap:anywhere;color:var(--muted)}.mapping h3{margin-bottom:6px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 20px}.filter{border:1px solid var(--line);background:var(--white);padding:6px 10px;font-size:12px;border-radius:4px}.filter[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}.search{margin-left:auto;border:1px solid var(--line);background:white;padding:7px 10px;border-radius:4px;min-width:210px}.decision-list{border-top:1px solid var(--line)}.decision{display:grid;grid-template-columns:112px minmax(0,1fr) 210px;gap:22px;padding:19px 0;border-bottom:1px solid var(--line);align-items:start}.decision h3{font-size:15px;margin-bottom:5px}.decision p{font-size:13px;color:var(--muted);margin:0}.decision .source{font-size:11px;line-height:1.6;color:var(--muted)}.decision .badge{margin-top:3px}.decision-count{font-size:12px;color:var(--muted)}details{border-bottom:1px solid var(--line);padding:17px 0}summary{cursor:pointer;font-size:15px;font-weight:600}details .detail-body{padding:16px 0 0 22px;font-size:13px;max-width:980px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.8;background:#edf0ed;padding:18px;border-radius:4px;margin:15px 0}.road{display:grid;grid-template-columns:72px 1fr;gap:0 24px}.road>div{padding:20px 0;border-top:1px solid var(--line)}.road .road-num{font-family:var(--serif);font-size:32px;color:var(--teal)}.road p{font-size:13px;color:var(--muted)}.road h3{margin:0 0 8px}.road .checks{font-size:12px;background:var(--white);border-left:2px solid #a8bab0;padding:10px 14px}.source-list{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}.source-list>div{padding:16px 0;border-top:1px solid var(--line);font-size:12px}.source-list b{display:block;margin-bottom:4px}.source-list code{font-size:11px;overflow-wrap:anywhere;color:var(--muted)}footer{border-top:1px solid var(--ink);padding:20px 0 30px;display:flex;justify-content:space-between;gap:20px;font-size:11px;color:var(--muted)}.print-only{display:none}.sr-only{position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}@keyframes appear{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}@media(max-width:1050px){.shell{padding:0 25px}.workflow{gap:13px}.node{padding:13px 11px}.node:not(:last-child):after{right:-12px;font-size:12px}.node .name{font-size:14px}.decision{grid-template-columns:100px 1fr}.decision .source{grid-column:2}.inspect{grid-template-columns:1.5fr 1fr}.intro{align-items:flex-start}.edition{max-width:165px}.pilot{grid-template-columns:1fr;gap:15px}}@media(max-width:740px){.shell{padding:0 18px}.mast{padding:17px 0}.wordmark{font-size:19px}.wordmark span{font-size:8px}.utility{font-size:10px;padding:6px 8px}.intro{display:block;margin-top:23px}.edition{text-align:left;max-width:none;margin-top:15px}.intro-copy{font-size:13px}.statusline{display:block;padding:12px 14px}.statusline strong{display:block;margin-bottom:5px}.tabs{gap:22px;margin-bottom:21px}.tab{font-size:12px}.sectionline{display:block}.legend{margin-top:10px;gap:11px}.workflow{grid-template-columns:1fr;gap:12px;margin:19px 0}.node{min-height:0;display:grid;grid-template-columns:40px 1fr auto;column-gap:8px;padding:13px;border-top-width:1px;border-left-width:3px}.node .num{grid-row:1/3;align-self:center;font-size:25px}.node .name{margin:0;font-size:15px}.node .desc{grid-column:2;min-height:0}.node .badge{grid-column:3;grid-row:1/3;align-self:center;margin:0;max-width:98px;text-align:center}.node:not(:last-child):after{right:auto;left:29px;top:auto;bottom:-14px;content:'↓';font-size:12px}.boundary{flex-wrap:wrap;gap:7px}.boundary span:last-child{margin-left:0}.inspect{grid-template-columns:1fr}.inspect-main{padding:22px 20px}.inspect-side{padding:22px 20px;border-left:0;border-top:1px solid var(--line)}.io{gap:15px}.io strong{font-size:11px}.ownership{grid-template-columns:1fr}.ownership>div{padding:20px}.ownership>div+div{border-left:0;border-top:1px solid var(--line)}.funnel{gap:8px}.funnel b{font-size:25px}.funnel span{font-size:9px}.pilot{margin-top:22px}.map-grid{grid-template-columns:1fr}.mapping{padding:20px}.mapping:nth-child(odd){border-right:0}.mapping:nth-last-child(2){border-bottom:1px solid var(--line)}.search{width:100%;margin:4px 0 0}.decision{grid-template-columns:1fr;gap:7px;padding:17px 0}.decision .source{grid-column:1}.decision .badge{width:max-content}.source-list{grid-template-columns:1fr}.road{grid-template-columns:37px 1fr;gap:0 12px}.road .road-num{font-size:25px}.road h3{font-size:14px}footer{display:block}footer span{display:block;margin-bottom:7px}}@media print{body{background:white;font-size:10pt;color:#000}.shell{padding:0;max-width:none}.actions,.tabs,.toolbar,.legend,.boundary,.workflow,.inspect,#decision-count{display:none!important}.intro{margin:15px 0}.statusline{margin:10px 0}.tab-panel[hidden]{display:block!important}.tab-panel{display:block!important;padding:16px 0;break-before:auto;animation:none}.tab-panel h2{font-size:18pt}.sectionline{margin-top:15px}.mapping,.decision,.ownership,.road>div,details{break-inside:avoid}.map-grid{display:block}.mapping{border-right:0!important;border-bottom:1px solid #ddd!important}.print-only{display:block}.print-stage{padding:14px 0;border-top:1px solid #ccc;break-inside:avoid}.print-stage h3{font-size:14pt}.print-stage p,.print-stage li{font-size:10pt}.print-stage ul{margin:6px 0;padding-left:20px}.decision[hidden]{display:grid!important}.decision{grid-template-columns:100px 1fr 160px;gap:15px}.decision .source{grid-column:auto}.badge{border:1px solid #aaa;background:none!important;color:#000!important}.pilot{display:block;margin-top:15px;padding:15px 0}.funnel{margin:10px 0}.source-list{grid-template-columns:1fr}.edition{font-size:9pt}.callout{background:none;border:1px solid #aaa}.note,.muted{color:#444}.ownership{margin-bottom:15px}.intro-copy{color:#444}footer{padding:12px 0}a{color:#000;text-decoration:none}pre{background:#f4f4f4;padding:10px;font-size:9pt}}
+.live-example{display:grid;grid-template-columns:1.6fr 1fr;gap:27px;padding:25px;border:1px solid var(--line);background:var(--white);border-radius:5px;margin-top:25px}.live-example h3{font-size:18px}.live-example p{font-size:13px}.gate-viz{width:100%;height:auto;display:block;margin:10px 0}.live-evidence{border-left:3px solid #96b7ae;padding:8px 13px;color:var(--muted)}@media(max-width:740px){.live-example{grid-template-columns:1fr;padding:20px}}@media print{.live-example{break-inside:avoid;grid-template-columns:1.5fr 1fr}.gate-viz{max-height:160px}}
+.target-entry{border:1px solid #a9beb3;border-radius:5px;background:var(--white);padding:19px 23px;margin:20px 0}.target-entry-top{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:12px}.target-fields{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.target-fields span{border:1px solid var(--line);background:#f0f4ef;border-radius:4px;padding:6px 12px;font-size:12px}.target-fields i{font-style:normal;font-size:10px;color:var(--muted)}.target-end{font-size:12px;color:var(--teal);font-weight:bold}.query-example{margin:14px 0 0;font-size:12px;color:var(--muted)}.job-states{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:18px 0;background:var(--white)}.job-state{padding:13px 14px;border-right:1px solid var(--line)}.job-state:last-child{border-right:0}.job-state b{display:block;font-size:12px;margin-bottom:4px}.job-state p{font-size:11px;line-height:1.6;margin:0;color:var(--muted)}.job-state i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#86968d;margin-right:5px}.job-state.running i{background:var(--blue)}.job-state.failed i{background:var(--red)}.job-state.hold i{background:var(--amber)}@media(max-width:900px){.job-states{grid-template-columns:repeat(3,1fr)}.job-state:nth-child(3){border-right:0}.job-state:nth-child(-n+3){border-bottom:1px solid var(--line)}}@media(max-width:740px){.target-entry{padding:15px}.target-entry-top{display:block}.target-end{display:block;margin-top:10px}.target-fields span{padding:5px 8px}.job-states{grid-template-columns:repeat(2,1fr)}.job-state:nth-child(3){border-right:1px solid var(--line)}.job-state:nth-child(2n){border-right:0}.job-state:nth-child(4){border-bottom:1px solid var(--line)}}@media print{.target-entry,.job-states{break-inside:avoid}.job-states{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body><div class="shell">
+<header class="mast"><div class="wordmark">eureka<span>AGENT SYSTEM / WORKING ATLAS</span></div><div class="actions"><button class="utility" id="export" type="button">판단 목록 내려받기</button><button class="utility" id="print" type="button">인쇄 / PDF</button></div></header>
+<div class="intro"><div><p class="eyebrow">문제 발견 시스템 · 설계와 실행의 경계</p><h1>근거가 문제정의가 되기까지</h1><p class="intro-copy">입력한 나이대·성별·직업·장소에 맞춰 실제 자료를 수집하고, 불편 판별과 문제정의까지 연결합니다. 사용자 결정과 구현 상태를 함께 갱신하는 작업 지도입니다.</p></div><div class="edition">2026.09.13 기준<br>아이디어 생성 · 개인화 잠금<br>단일 파일 · 오프라인 열람</div></div>
+<div class="statusline"><strong id="overall-title">구현 현황 확인 중</strong><span id="overall-text"></span></div>
+<nav class="tabs" role="tablist" aria-label="설계 지도 보기"><button class="tab" role="tab" id="tab-flow" aria-controls="flow" aria-selected="true">01 작동 지도</button><button class="tab" role="tab" id="tab-screen" aria-controls="screen" aria-selected="false" tabindex="-1">02 상세페이지 데이터</button><button class="tab" role="tab" id="tab-decisions" aria-controls="decisions" aria-selected="false" tabindex="-1">03 판단 기록</button><button class="tab" role="tab" id="tab-prompts" aria-controls="prompts" aria-selected="false" tabindex="-1">04 프롬프트·방어</button><button class="tab" role="tab" id="tab-roadmap" aria-controls="roadmap" aria-selected="false" tabindex="-1">05 실행·검증 계획</button></nav>
+<main>
+<section class="tab-panel" role="tabpanel" id="flow" aria-labelledby="tab-flow"><div class="statusline" id="production-collection-note"><div><strong>2026.09.14 수집량·결과 노출 개선</strong><p>검색 40회 → 120회 · 요청당 최대 10건 → 20건 · 판별 최대 200건 → 2,400건. 8가지 불편 표현과 표현 없는 상황 탐색을 함께 사용합니다.</p><p>진행 중에도 발견한 불편을 볼 수 있고, 타겟 미확인 불편 전체를 20건씩 검토합니다. 생성 형식 오류는 한 번 재시도합니다. 발견한 불편과 타겟 확인 문제정의를 분리하며 처리 상한이 결과 수를 보장하지는 않습니다.</p></div></div><div class="sectionline"><h2>입력 조건에서 해당 실행의 근거까지</h2><div class="legend"><span>수집·규칙·집계</span><span class="llm">LLM 사용</span><span class="work">이번 연결 범위</span></div></div><p class="small muted">단계를 선택하면 입력·출력·내부 처리·실패 대응을 볼 수 있습니다. 단계 이름이 에이전트여도 모두 LLM을 호출하지는 않습니다.</p><div class="target-entry"><div class="target-entry-top"><div><p class="eyebrow">최신 사용자 결정 · 입력에 맞게 실제 수집</p><div class="target-fields"><span>나이대</span><i>+</i><span>성별</span><i>+</i><span>직업 키워드</span><i>+</i><span>장소 키워드</span></div></div><span class="target-end">탐색 → POST 수집 작업 → 작업 ID</span></div><p class="query-example"><b>현재 구현 선택:</b> 입력한 항목끼리 AND, 직업·장소의 복수 키워드는 조합별 OR. 검색 예시: <code>30대 + 여성 + (간호사 또는 간호조무사) + (병원 또는 보건소)</code>. 이 예시는 사용자가 선택한 실제 값이 아닙니다.</p><p class="query-example"><b>구분:</b> 검색 결과 → 원문 문구 대조 → 불편 판별 순서입니다. 입력 문구가 함께 등장해도 작성자가 그 타겟이라는 뜻은 아닙니다. 역할·나이·성별은 원문 자기 서술에서 별도 판별합니다.</p></div><div class="workflow" id="workflow"></div><div class="boundary"><span>타겟 입력 → 수집 작업 생성 → 실행별 결과·상세</span><span class="lock">④ 아이디어·개인화 잠금</span><span>탐색 버튼에서 실제 수집 시작 · 실행별 근거 격리</span></div><div class="inspect" id="inspector" aria-live="polite"></div><div class="print-only" id="print-stages"></div><h3 class="subheading">진행 상태와 결과 상태를 섞지 않습니다</h3><div class="job-states"><div class="job-state"><b><i></i>대기</b><p>요청 접수·작업 ID 발급. 아직 수집 결과가 아닙니다.</p></div><div class="job-state running"><b><i></i>실행 중</b><p>수집·판별·근거·생성의 실제 단계와 처리 건수를 표시합니다.</p></div><div class="job-state"><b><i></i>완료·결과 있음</b><p>해당 작업의 결과와 상세를 엽니다. 공개 승인을 뜻하지 않습니다.</p></div><div class="job-state failed"><b><i></i>실패</b><p>오류 사유를 표시합니다. 0건 성공이나 예시 결과로 바꾸지 않습니다.</p></div><div class="job-state"><b><i></i>완료·빈 결과</b><p>수집·문구 대조·판별 결과에서 문제로 만들 근거를 확보하지 못했습니다. 조건을 숨겨 완화하지 않습니다.</p></div><div class="job-state hold"><b><i></i>검토 보류</b><p>초안은 있으나 근거·AI 검수·사람 승인 조건을 충족하지 못했습니다.</p></div></div><p class="small muted">서버 실행 상태는 queued·running·completed·failed입니다. 검색·판별·근거·생성 단계는 stage로 구분하며, completed라도 problems가 비어 있거나 검수 결과가 hold일 수 있습니다.</p><div class="callout"><b>이전 정책 실제 검증 · 30대 / 군인</b><p style="margin-top:8px">검색 5개 성공 → 원문 31건 → 타겟 문구 동시 확인 3건 → 규칙 통과·AI 판별 2건 → 불편 후보 0건 → 문제정의 0건.</p><p>첫 연결 실행에서는 입력 문구가 확인되지 않는 글로 초안 3개가 만들어졌습니다. 실제 원문 검토 후 문구 검사와 명시적 속성 불일치 제외를 추가했고, 과거 미검사 실행의 결과 노출도 차단했습니다. 0건을 조건 완화나 예시 데이터로 채우지 않았습니다.</p><p class="small muted">최종 실행: col-21487dbac1b941b9a0320966 · 검색·Gemini 실제 호출. 문구가 함께 나온 3건도 타겟 당사자 경험으로 확인된 것은 아닙니다. 직업·장소의 의미 관계, 동의어·연령 범위 확장과 충분한 표본 확보는 추가 검증이 필요합니다.</p></div><div class="live-example"><div><p class="eyebrow">변경 전 실제 생성 기록 / 검토용 · 게시 보류</p><h3 id="example-title"></h3><p id="example-description"></p><p class="small muted" id="example-context"></p><p class="live-evidence" id="example-evidence"></p><p class="small muted">③의 생성·AI 검수 경로를 실제 Gemini로 실행한 단일 사례 예시입니다. 통과 사례가 아닙니다. 자동 후보 승격이 아니라 검토용으로 지정한 자료이며 정식 게시 문제는 아닙니다.</p></div><div><h3>기준은 충족하지 못했습니다</h3><svg class="gate-viz" viewBox="0 0 310 139" role="img" aria-label="관련 사례 1건 기준 20건, 출처 1곳 기준 3곳, 대표 근거 1건 기준 3건으로 모두 미달"><g font-family="Arial, sans-serif" font-size="11" fill="#607178"><text x="0" y="17">관련 사례</text><text x="310" y="17" text-anchor="end">1 / 20건</text><text x="0" y="61">서로 다른 출처</text><text x="310" y="61" text-anchor="end">1 / 3곳</text><text x="0" y="105">대표 근거</text><text x="310" y="105" text-anchor="end">1 / 3건</text></g><g fill="#e5e9e4"><rect y="25" width="310" height="7" rx="2"/><rect y="69" width="310" height="7" rx="2"/><rect y="113" width="310" height="7" rx="2"/></g><g fill="#b88a3f"><rect y="25" width="15.5" height="7" rx="2"/><rect y="69" width="103.33" height="7" rx="2"/><rect y="113" width="103.33" height="7" rx="2"/></g></svg><p class="small muted">강도 라벨은 ‘낮음’ 1건이지만 분모 3건 미만이라 상세 화면의 분포는 숨겨야 합니다. 돈 언급·해결책 탐색은 각각 0건입니다.</p><p class="small muted">두 번째 생성 결과이며 AI 검수도 hold를 반환했습니다. 판단 사유의 적절성과 텍스트 추출 해석이 원문 범위 안인지 사람 검토가 남았습니다.</p></div></div><div class="callout"><b>실제 생성에서 보강한 방어:</b> 첫 초안은 “오랜만에 회의록 담당”을 “업무 복귀”로, 귀찮음을 피로감으로 확대했습니다. 프롬프트·규칙을 보강한 두 번째 초안은 서술이 줄었지만 AI 검수가 보류했습니다. 생성 경로의 정상 실행과 내용 통과는 다르며, 검수 사유 자체도 사람이 확인해야 합니다.</div><h3 class="subheading">숫자와 설명은 다른 경로에서 만듭니다</h3><div class="ownership"><div><h3><span class="badge live">코드가 셈</span>실제 기록 → 집계</h3><p>사례 수, 매체별 건수, 작성일 분포, 돈 관련 표현, 게시 기준. 불편 강도·역할 분포도 숫자 자체는 코드가 라벨을 세어 만듭니다.</p></div><div><h3><span class="badge llm">LLM이 씀</span>근거 → 라벨·문장</h3><p>불편 여부·강도·자기 서술 속성, 개별 불편 요약, 문제 제목·설명·맥락·복잡성 설명. 확신도는 통계적 정확도나 신뢰 점수가 아닙니다.</p></div></div><div class="pilot"><div><p class="eyebrow">변경 전 파일럿 · 2026.09.13</p><h3>연결은 확인.<br>게시 품질은 별도 검증.</h3><p class="small muted">회의록 키워드 · IT/생산성 · 블로그 중심<br>Gemini 3.5 Flash-Lite</p></div><div><div class="funnel"><div><b>46</b><span>수집·저장</span></div><i>→</i><div><b>26</b><span>규칙 통과·LLM 입력</span></div><i>→</i><div><b>2</b><span>보강 후 불편 판정</span></div><i>→</i><div><b>0</b><span>승격 후보·근거 묶음</span></div></div><p class="small muted" style="margin-top:14px">기존 12건 → 보강 후 2건. 같은 표본으로 프롬프트를 수정했으므로 정확도 향상률을 뜻하지 않습니다. 2건 중 1건은 요약에 원문 밖 추론이 남아 검토 보류입니다. 묶기·게시 기준은 낮추지 않았습니다.</p></div></div></section>
+<section class="tab-panel" role="tabpanel" id="screen" aria-labelledby="tab-screen" hidden><div class="sectionline"><h2>상세페이지의 질문마다 생성 책임을 연결</h2></div><p class="muted">최종 결과는 <code>Problem</code> 하나에 서술·근거·집계·게시 기준을 담습니다. 대표 근거 3~5건과 전체 사례 집계의 분모를 구분합니다.</p><div class="map-grid" id="screen-map"></div><div class="callout"><b>근거 요약도 자동 추출·요약 결과입니다.</b> 원문에서 관측한 사실과 AI가 재서술한 문장을 구분하고 출처로 돌아가 확인할 수 있어야 합니다. 인용을 허용하지 않은 자료는 발췌 대신 요약을 보여줍니다.</div><div class="ownership"><div><h3>근거 목록의 네 가지 필터</h3><p>전체 / 강한 불만 / 돈 언급 / 해결책 탐색. ②의 건별 라벨을 ②′가 그대로 전달하고 화면에서 거릅니다. 필터 선택으로 전체 집계값을 다시 만들지는 않습니다.</p></div><div><h3>타겟 대조</h3><p>나이대·성별·직업·장소 중 최소 두 항목. 입력값은 수집 검색 조건으로 먼저 사용합니다. 이후 원문·근거에서 실제로 확인된 속성과 별도 대조하며, 검색 조건을 작성자의 확인된 속성으로 바꾸지 않습니다.</p></div></div></section>
+<section class="tab-panel" role="tabpanel" id="decisions" aria-labelledby="tab-decisions" hidden><h2>확정한 것과 아직 판단할 것을 분리</h2><p class="muted">‘사용자 확정’은 이번 요청 또는 문서에 사용자 최종 결정으로 명시된 항목만 해당합니다. 문서의 제안·구현 상수를 사용자 동의로 바꾸지 않았습니다.</p><div class="toolbar" aria-label="판단 기록 필터"><button class="filter" data-filter="all" aria-pressed="true">전체</button><button class="filter" data-filter="confirmed" aria-pressed="false">사용자 확정</button><button class="filter" data-filter="document" aria-pressed="false">문서 기준</button><button class="filter" data-filter="temporary" aria-pressed="false">임시값</button><button class="filter" data-filter="pending" aria-pressed="false">미결정</button><button class="filter" data-filter="inference" aria-pressed="false">에이전트 제안</button><label class="sr-only" for="search">판단 기록 검색</label><input class="search" id="search" type="search" placeholder="판단·출처 검색"></div><p id="decision-count" class="decision-count" aria-live="polite"></p><div class="decision-list" id="decision-list"></div><p class="small muted" style="margin-top:17px">최신 사용자 요청이 과거 “배치 전용·실시간 탐색 제외”를 대체합니다. 과거 기준은 이력으로 남기며 현재 설계와 섞지 않습니다. 출처 정책 문서는 조사 당시의 기록이며 현재 외부 약관을 재검증했다는 뜻은 아닙니다.</p></section>
+<section class="tab-panel" role="tabpanel" id="prompts" aria-labelledby="tab-prompts" hidden><h2>AI에게 맡기는 일과 막아야 할 추론</h2><p class="muted">아래는 현재 코드의 프롬프트와 출력 방어를 요약한 것입니다. 실제 생성 성공과 사람의 내용 승인은 구분합니다.</p><details open><summary>타겟 → 검색 쿼리 · 조건과 판정 속성을 분리</summary><div class="detail-body"><p><span class="badge progress">새 경로 검증 완료</span> <code>age, gender, jobs[], places[]</code>를 작업 생성 요청으로 전달합니다. 입력한 항목을 쿼리에 함께 넣고 직업·장소의 키워드 조합을 별도 검색으로 실행하는 AND/OR 방식은 구현 선택입니다.</p><pre>사용자 입력 → 조건 검증 → 수집 작업 ID → 실제 검색 API 호출
+작업별 원자료 → Gemini 불편 판별 → 근거 집계 → 문제정의 검토 초안
+작업 상태 GET → 실제 단계/실패/빈 결과 → 해당 작업 결과·상세
+
+검색 타겟은 원문 데이터가 아니다.
+검색어 “30대 여성”이 포함돼도 글쓴이가 30대 여성이라고 판정하지 않는다.
+검색 조건을 완화하거나 다른 실행의 자료를 끌어와 부족한 결과를 채우지 않는다.</pre><p>상한·카테고리 매핑·활성 소스 범위는 구현 기본값 또는 운영 판단입니다. 사용자가 직접 확정한 조건 결합 규칙으로 표시하지 않습니다.</p></div></details><details><summary>② 해석기 · 실제 경험을 먼저 확인</summary><div class="detail-body"><p>입력: ID, 제목, 정제된 텍스트, 출처. 기본 20건씩 한 요청으로 묶고 모든 입력 ID에 하나씩 JSON 판정을 요구합니다.</p><pre>글의 목적을 먼저 구분한다.
+실제 글쓴이의 구체적인 사건 + 막힌 지점이 확인되면 불편 후보다.
+광고·사용법 안내가 공감을 얻기 위해 쓴 예시·가정 질문은 제외한다.
+잘린 스니펫의 뒤를 상상하지 않는다.
+정보가 부족하면 is_pain=false, confidence="낮음", pain_summary=null.
+요약에 원문에 없는 감정·직업·실패 결과를 보태지 않는다.</pre><p><b>구분 예시:</b> “파일 검색이 힘들다면 폴더 이름을 바꿔보세요”는 일반 안내. “어제 정산하다 영수증 파일을 못 찾아 폴더를 뒤졌다”는 구체적 경험입니다. 이 문장들은 프롬프트 설명용 예시이며 수집된 실데이터가 아닙니다.</p><p class="code muted">근거: app/prompts/interpreter_prompts.py · JUDGE_PAINS</p></div></details><details><summary>② 출력 검증 · 모델 응답을 그대로 믿지 않음</summary><div class="detail-body"><p>불편 여부·확신도·불편 강도·해결책 탐색 신호와 역할·나이대·성별·서비스 이름을 검증합니다. 성별은 원문의 자기 서술 표현을 코드로 다시 확인하고, 서비스명은 원문에 실제 등장한 이름만 유지합니다.</p><p>지불 신호는 LLM에게 산출시키지 않고 별도 <code>PAYMENT_SIGNALS</code> 규칙으로 계산합니다. 요약에는 집계성 수치 제거, 길이 제한, 원문 복제 비율 검사도 적용합니다. 이런 검사가 모든 의미 왜곡을 찾아내는 것은 아닙니다.</p><p>호출·파싱 실패는 낮은 확신도로 강등해 묶기 승격에서 제외합니다. 상한 초과분·보류 기록은 보존합니다. 기존 판정 재사용·재판정 버전 선택은 파일럿 보고서가 지적한 운영 점검 대상입니다.</p><p class="code muted">근거: app/tools/llm_tool.py · app/agents/interpreter_agent.py</p></div></details><details><summary>③ 문제정의 · 근거가 말하는 범위 안에서 서술</summary><div class="detail-body"><p><span class="badge live">구현 코드 기준</span> ②′의 근거 묶음을 읽고 문제 제목, 한 줄 설명, 상세 설명, 맥락, 복잡성 설명을 작성합니다. API·저장 상태는 작동 지도 상단의 최종 구현 현황으로 확인합니다.</p><pre>입력 근거에서 공통으로 확인되는 불편만 하나의 문제로 정의한다.
+출력: title, one_liner, description, context, complexity_note.
+새로운 사례·출처·서비스·원인·통계를 만들지 않는다.
+복잡성은 제약과 불확실성을 문장으로 설명한다. 점수·등급은 금지한다.
+증거가 부족한 원인과 대상은 단정하지 않는다.
+해결 아이디어·개인화 결과는 만들지 않는다.
+사례 수·출처 수·게시 기준·분포는 입력 근거 집계를 그대로 결합한다.</pre><p>③은 초안 생성 후 별도 AI 검수 요청으로 모든 사실 주장을 원문에 대응시킵니다. “오랜만에 담당”을 “업무 복귀”로 바꾸거나 비유를 실제 기술 사용으로 단정하는 과대추론도 보류하도록 지시합니다. LLM 생성·검수가 실패하거나 계약을 충족하지 못하면 hold 사유를 반환합니다. 목업 데이터가 실데이터 경로를 대신하는 동작도 허용하지 않습니다.</p></div></details><details><summary>반복 실행과 사람 검수 · 테스트 통과와 품질은 별개</summary><div class="detail-body"><p>파일럿에서 보강 후 불편 여부는 26/26건 일치했지만 양성은 2건뿐입니다. 강도 일치 26건에는 음성의 null 24건이 포함돼 양성 추출 정확도를 뜻하지 않습니다. 나이·성별·지불 신호도 양성 표본을 검증한 결과가 아닙니다.</p><p>문서 기준은 초기 게시 전 사람 검수입니다. 자동 게시 기준을 통과했다는 사실과 사람이 내용까지 승인했다는 사실은 구분해야 합니다. 검수 범위·종료 조건은 미결정이며, 사용자에게 하지 않은 검토를 했다고 표시하면 안 됩니다.</p></div></details></section>
+<section class="tab-panel" role="tabpanel" id="roadmap" aria-labelledby="tab-roadmap" hidden><h2>완료의 기준은 ‘상세페이지가 읽을 정보’</h2><p class="muted">입력값의 실제 검색 전달, 작업 ID에 따른 상태·결과 연결을 검증했습니다. 실제 재실행은 후보 0건이며, 후보가 있을 때의 상세 생성 연결은 명시적인 합성 자료로 전체 경로를 확인했습니다.</p><div class="road"><div class="road-num">A</div><div><h3>타겟 수집 작업 → 격리 코퍼스 → 문제정의 <span class="badge progress" id="road-a-state">이번 구현</span></h3><p>POST 요청으로 입력 조건을 받아 실제 검색 쿼리를 만들고 수집 작업을 실행합니다. 작업별 자료를 판별·집계·문제정의로 연결하고 결과와 보류 사유를 작업 ID로 재조회합니다.</p><div class="checks">확인: 입력 조건의 검색 반영 · AND/OR 조합 · 작업별 코퍼스 격리 · 실제 진행 상태 · 생성 실패/보류 사유 · 수치/출처 대조</div></div><div class="road-num">B</div><div><h3>기준 디자인의 입력·진행·실행 결과 연결 <span class="badge progress" id="road-b-state">이번 연결</span></h3><p>기준 config의 네 필드가 작업 생성 요청으로 전달되고 loading이 실제 서버 단계를 확인합니다. result·detail은 해당 실행 결과만 읽습니다. React는 사용하지 않으며 아이디어·개인화는 잠금을 유지합니다.</p><div class="checks">확인: 입력 → POST → 상태 GET → 동일 작업 결과·상세 · 대기/실행/실패/빈 결과/검토 보류 · 출처·필터·분모 · 기존 디자인</div></div><div class="road-num">C</div><div><h3>새 표본으로 판별·요약 검증 <span class="badge inference">후속 제안</span></h3><p>커뮤니티·질문형 검색 표본으로 실제 경험 비율을 점검합니다. 파일럿의 보류 요약과 역할 오인식을 사람 정답과 비교하고, 재판정 버전을 분리합니다.</p><div class="checks">확인: 광고/가정 제외 · 잘린 글 추론 방지 · 별도 표본 평가 · 출처 편중 · 대표 근거 요약과 원문 대응</div></div><div class="road-num">D</div><div><h3>운영 상한·소스·공개 정책 검증 <span class="badge pending">남은 운영 결정</span></h3><p>요청당 검색·LLM 비용, 동시 실행·재시도 상한, 직업·장소의 카테고리 매핑과 활성 소스 범위를 검증합니다. 게시 전 사람 검수·출처 정의·기준 적정성도 별도 판단합니다.</p><div class="checks">확인: 실행 로그·상한·실패 사유 · 검색 조건과 확인 속성 구분 · 공개/검토 분리 · 검수 기록 · 검증된 소스만 활성화</div></div></div><h3 class="subheading">이 문서의 근거와 읽는 순서</h3><div class="source-list"><div><b>사용자 요청 / 확정 범위</b>아이디어는 잠금. 문제정의 상세 근거페이지 정보 생성까지. 최신 결정은 타겟 입력에 맞춘 실제 수집·기준 reference 디자인 유지·변경사항의 바탕화면 지도 반영입니다.</div><div><b>화면과 필드의 기준</b><code>docs/DATA_SPEC.md</code><br>온보딩 최종 결정, 상세 8블록, AI 숫자 금지, 미결정·임시값.</div><div><b>수집·묶기·게시 설계</b><code>docs/DATA_COLLECTION.md</code><br>후보·게시 기준과 초기 사람 검수의 근거. 과거 배치 전용 내용은 최신 타겟 조건 수집 요청으로 대체됐습니다.</div><div><b>소스 범위와 보류 사항</b><code>docs/DATA_SOURCES.md</code><br>네이버·카카오 연결, 다른 소스 승인/검토 상태. 현재 약관을 검증한 법률 안내가 아님.</div><div><b>실제 실행의 한계</b><code>docs/GEMINI_PILOT_2026-09-13.md</code><br>46 → 26 → 2 → 0, 보류 사례, 실데이터 품질과 회귀 테스트 구분.</div><div><b>인계·코드·기준 화면</b><code>AI협업.md · Final/Backend/app/agents/ · app/tools/ · app/config/settings.py<br>Final/Frontend/reference-pages/{config,loading,result,detail}.html</code><br>인계 시점과 코드가 다르면 현재 검증 상태를 먼저 확인.</div></div></section>
+</main><footer><span>유레카 / 에이전트 설계 지도 · 2026.09.14</span><span>색상은 정보의 성격을 구분합니다. 수치 신뢰도나 정확도 점수가 아닙니다.</span></footer>
+</div><script>
+'use strict';
+/* FINAL IMPLEMENTATION STATUS — 최종 검증 후 이 객체만 갱신합니다. 과거 파일럿 관측값은 별도 기록으로 유지합니다. */
+const IMPLEMENTATION_STATUS = {
+  "title": "탐색량 확대·불편 전체 보기 구현 완료",
+  "summary": "한 번에 검색 120회·최대 2,400건 수집 및 판별로 확대했습니다. 8가지 불편 표현과 표현 없는 상황 탐색을 함께 사용합니다. 발견한 불편과 타겟 확인 문제정의를 나누고 미확인 불편도 모두 검토할 수 있습니다. 백엔드 615개·화면 34개 테스트 통과. 확대 범위의 실제 수집량·모델 정확도는 별도 확인이 필요합니다.",
+  "stages": [
+    "검색 확장·실API 확인",
+    "의미·타겟 회귀 통과",
+    "회차 누적 회귀 통과",
+    "생성·재개 회귀 통과",
+    "실제 기준 화면 확인"
+  ],
+  "stageNotes": [
+    "첫 120개 요청의 기본 120주제 포함, 첫 40개 요청의 8불편 의도와 표현 없는 상황 탐색을 검증했습니다. 기존 4개 실제 검색 endpoint 연결은 확인됐습니다. 금융·건강은 뉴스 제한을 유지합니다.",
+    "2,400건을 한 작업에서 모두 판별하고 진행 상태를 갱신하는 모의 통합 테스트를 통과했습니다. 사용자 이전 실제 실행은 수집 278건·판별 200건·불편 14건·타겟 확인 불편 2건이었습니다. 새로운 처리 상한은 실제 결과 수나 정확도 보장이 아닙니다.",
+    "같은 타겟·계획 버전의 다음 회차에 정상 판정과 원문을 복사하고 부모 기록을 보존합니다. 같은 문제의 관련 사례가 2건→4건으로 늘어나는 합성 회귀를 통과했습니다. 묶기는 기존 최근 4주·근거 조회는 8주 범위입니다.",
+    "생성 JSON 필드·타입 오류는 원래 근거로 한 번 재생성하고 다시 검증합니다. 실패·재시도 수를 별도 집계합니다. 이전 실제 실행은 후보 2개 중 1개가 형식 오류로 실패했으나 실제 잘못된 응답 본문은 보존돼 있지 않습니다.",
+    "화면 34개 테스트 통과. 진행 중 불편 보기와 같은 작업 상태 조회, 미확인 불편 전체 페이지, 이전 계획에서 새 범위로 명시적 탐색을 검증했습니다. 새로고침이나 결과 열기로 수집을 자동 시작하지 않습니다."
+  ],
+  "roadmapA": "운영 확장·회귀 검증 완료",
+  "roadmapB": "기준 화면 준비 완료"
+};
+const GENERATED_EXAMPLE = {"title": "회의록 담당 재지정 상황에서 텍스트 추출 작업으로 인한 번거로움", "description": "회의록 담당 업무를 다시 맡게 된 상황에서 텍스트를 추출하는 작업 수행 시 번거로움을 느낌", "context": "회의록 담당 업무를 다시 수행하는 발생 상황이 확인되었으며, 원인은 확인되지 않음", "complexity_note": "문제를 해결할 때 현재 처리 절차와 자료 형식을 먼저 확인해야 함", "evidence": [{"raw_item_id": "kakao:ac49808a02305fd5", "summary": "몇 년 만에 회의록 작성을 맡게 되어 자막 텍스트를 따는 등의 작업이 귀찮고 번거로움", "excerpt": null, "source_name": "다음 웹문서", "source_url": "https://gall.dcinside.com/mgallery/board/view/?id=japanidolgirls&no=140634", "source_kind": "블로그", "posted_at": "2025-10-28", "severity": "낮음", "has_payment_signal": false, "has_need_signal": false}]};
+const stages = [
+  {
+    "id": "collect",
+    "num": "01",
+    "name": "① 수집기",
+    "kind": "rule",
+    "desc": "입력 타겟으로 검색·정제",
+    "agent": "Target collection worker / 배치: CollectorAgent",
+    "input": "TargetProfile + 작업 ID",
+    "inputText": "온보딩 타겟 + 검색 계획 버전 + 한 번의 탐색 처리 상한",
+    "output": "작업별 RawItem[]",
+    "outputText": "검색 조건·실행 ID와 연결된 정제 자료, 원문 URL, 출처, 날짜·해시·라이선스",
+    "purpose": "기본 120개 주제와 직업·장소별 상황을 검색 후보로 두고, 다양한 불편 표현과 출처를 순환해 실제 자료를 수집합니다.",
+    "steps": [
+      "나이대·성별·직업·장소 입력을 검증하고 검색 계획과 작업 ID를 발급합니다.",
+      "기본 120주제와 직업·장소 상황에 8개 불편 의도 또는 불편 표현 없는 검색을 조합합니다. 한 번에 120개 검색을 실행하고 요청마다 최대 20건을 받습니다.",
+      "실제 검색 응답을 정제하고 동일 질문·URL·내용 중복을 제거합니다. 검색어별 처리 결과와 건수를 남깁니다.",
+      "같은 타겟·계획 버전의 다음 회차는 미탐색 범위를 이어가며 근거를 누적합니다. 다른 타겟과 이전 판별 정책의 자료는 섞지 않습니다."
+    ],
+    "errors": [
+      "검색 실패와 검색 결과 없음, 회차 예산 종료를 구분합니다. 전체 카탈로그를 다 탐색한 것처럼 표시하지 않습니다.",
+      "금융·건강은 기존 뉴스 출처 제한을 유지합니다. 개인 경험 출처 확대와 소스 독립성 정의는 별도 운영 검토가 남아 있습니다."
+    ],
+    "guard": "검색으로 넓게 후보를 찾고, 같은 경험자의 명시적 근거로 타겟을 별도 확인합니다. 검색어의 등장은 작성자 속성의 증명이 아닙니다.",
+    "path": "app/tools/target_query_tool.py · collection_tool.py · search_tool.py · app/workers/collection_worker.py"
+  },
+  {
+    "id": "interpret",
+    "num": "02",
+    "name": "② 해석기",
+    "kind": "llm",
+    "desc": "실제 불편 판별·유사 사례 묶기",
+    "agent": "InterpreterAgent",
+    "input": "RawItem[]",
+    "inputText": "실제 수집 자료와 동일 타겟 탐색의 이전 판정. 한 작업에서 최대 2,400건 판별",
+    "output": "Judgement[] → ProblemCandidate[]",
+    "outputText": "불편 있음·없음·근거 부족 및 타겟 확인·미확인·불일치, 확인된 불편의 묶음",
+    "purpose": "불편이 존재하는지와 누구의 경험인지를 따로 판별합니다. 사전 표현이 없어도 구체적 행동·반복·손실을 의미 판별합니다.",
+    "steps": [
+      "중복·광고 등 기본 정제를 적용합니다. 불편 키워드가 없다는 이유만으로 의미 판별에서 탈락시키지 않습니다.",
+      "실제 경험·광고/안내·타인 경험·질문답변 혼합을 구분하고 판단 정보가 부족하면 보류합니다.",
+      "나이·성별·직업·장소를 같은 경험자의 원문 근거 구절과 대조합니다. 모르는 속성을 검색 조건이나 말투로 채우지 않습니다.",
+      "타겟이 확인된 실제 불편만 묶어 문제 근거로 사용합니다. 불편은 있지만 타겟이 미확인인 후보도 별도로 보존합니다.",
+      "배치 판별 도중 실제 처리 건수와 불편 목록을 저장합니다. 기본 판별 상한을 수집 상한과 맞춰 200건에서 멈추던 제한을 제거했습니다."
+    ],
+    "errors": [
+      "LLM 오류·파싱 실패는 낮은 확신도로 강등하고 성공 판정처럼 쓰지 않습니다.",
+      "스니펫에 없는 원인·감정·직업은 보태지 않도록 지시합니다. 남은 오인은 사람 표본 검수 대상입니다."
+    ],
+    "guard": "질문과 답변 또는 타인의 속성을 섞어 타겟을 확인하지 않습니다. 비용 불만을 지불 의향으로 자동 변환하지 않습니다.",
+    "path": "app/agents/interpreter_agent.py · app/tools/cluster_tool.py · app/tools/llm_tool.py"
+  },
+  {
+    "id": "evidence",
+    "num": "03",
+    "name": "②′ 근거 조립기",
+    "kind": "rule",
+    "desc": "대표 근거·집계·게시 기준",
+    "agent": "EvidenceAgent",
+    "input": "ProblemCandidate[]",
+    "inputText": "동일 타겟·계획 버전 탐색에서 누적한 확인된 실제 불편 후보",
+    "output": "EvidenceBundle[]",
+    "outputText": "Evidence[] + ProblemSignals + PublishGate",
+    "purpose": "원자료와 판정을 다시 찾아 근거 상세페이지에 필요한 사실과 집계를 만듭니다. LLM과 분리된 순수 집계 경로입니다.",
+    "steps": [
+      "현재 실행의 격리 저장소에서 원자료·판정을 읽습니다. 명시적으로 이어진 같은 타겟 탐색의 근거만 누적합니다.",
+      "출처·작성 주차·라벨별 건수·돈 표현·서비스 이름을 집계하고 분모를 보존합니다.",
+      "출처별로 번갈아 근거를 선택합니다. 같은 출처 안에서는 강도·요약 존재·ID 순, 최대 5건입니다.",
+      "현재 20사례 / 3출처 / 3근거 기준을 판정하고 당시 기준값·통과 여부·미달 사유를 반환합니다."
+    ],
+    "errors": [
+      "후보가 없으면 빈 배열을 반환합니다. 숫자나 근거를 채워 만들어내지 않습니다.",
+      "작성일이 없는 글은 undated_count로 분리합니다. 라벨 표본이 3건 미만인 분포는 화면에서 숨깁니다."
+    ],
+    "guard": "전체 수집 건수·판별 통과 건수·대표 근거 수를 구분합니다. 검색조건과 AI가 원문에서 확인한 속성도 각각 표시해야 합니다.",
+    "path": "app/agents/evidence_agent.py · app/tools/aggregate_tool.py"
+  },
+  {
+    "id": "problem",
+    "num": "04",
+    "name": "③ 문제정의 생성기",
+    "kind": "work",
+    "desc": "근거 범위 안에서 문장 생성",
+    "agent": "ProblemAgent",
+    "input": "EvidenceBundle + 후보 재료",
+    "inputText": "실행별 후보와 근거 묶음. LLM에는 정제된 원문과 카테고리만 전달",
+    "output": "ProblemDraft → Problem",
+    "outputText": "실행 결과에 연결된 Problem 검토 초안·검수 사유·근거·집계",
+    "purpose": "문제의 공통점을 사람이 읽는 언어로 정리한 뒤, 별도 LLM 검수 호출로 원문과 대조합니다. 숫자·근거는 코드가 결합합니다.",
+    "steps": [
+      "해당 실행의 후보·근거 묶음을 대응시킵니다. 공개 경로의 기준은 유지하고 요청별 검토 결과는 공개 문제와 별도로 만듭니다.",
+      "LLM에게 title·one_liner·description·context·complexity_note 다섯 서술만 작성하게 하고 근거는 그대로 복사합니다.",
+      "JSON 필드·타입 오류는 원래 자료로 한 번 재생성합니다. 실패하면 생성 실패로 집계하며 근거 검증은 그대로 적용합니다.",
+      "별도 AI 검수 호출로 초안의 사실 주장을 원문에 역대응합니다. 과대추론·가상 원인·다수 일반화는 hold 처리합니다.",
+      "코드가 원자료 집계를 대조하고 검토 초안과 보류 사유를 해당 실행에 반환합니다. 게시 기준·AI 검수·사람 승인을 통과하기 전에는 공개 문제 목록에 넣지 않습니다."
+    ],
+    "errors": [
+      "LLM·검증 오류는 hold 사유를 반환합니다. 검수 실패를 성공 문제로 대체하지 않습니다.",
+      "게시 기준 통과와 사람 내용 검수는 별개입니다. 자동 기준만으로 사람 승인을 표시하지 않습니다."
+    ],
+    "guard": "검토용 미달 초안과 게시 가능한 문제를 구분합니다. 자동 AI 검수는 별도 호출이지만 사람이 내용을 승인한 것으로 해석하지 않습니다.",
+    "path": "app/agents/problem_agent.py · app/prompts/problem_prompts.py · app/tools/db_tool.py"
+  },
+  {
+    "id": "read",
+    "num": "05",
+    "name": "작업 상태·결과 화면",
+    "kind": "work",
+    "desc": "입력 → 진행 → 실행 결과·상세",
+    "agent": "Collection Job API / Reference HTML",
+    "input": "TargetProfile → Collection Job",
+    "inputText": "입력 조건으로 생성한 작업 ID, 실제 단계·처리 건수·해당 실행 결과",
+    "output": "작업 상태 / 실행 결과 / 근거 상세",
+    "outputText": "대기·실행·실패·빈 결과·검토 보류를 구분한 기준 화면",
+    "purpose": "기준 디자인의 입력을 실제 수집 요청으로 전달하고, 서버 상태를 확인하며 해당 작업의 결과와 근거만 보여줍니다.",
+    "steps": [
+      "config의 네 입력값을 전송해 POST 수집 작업을 생성하고 발급받은 작업 ID를 보존합니다.",
+      "loading 화면은 GET 작업 상태를 확인해 대기/실행 중인 단계와 실제 처리 건수를 표시합니다. 임의 진행률로 꾸미지 않습니다.",
+      "실행 중에도 불편을 열어 볼 수 있으며 같은 작업을 계속 조회합니다. 발견한 불편 N건과 타겟 확인 문제정의 M개를 따로 표시합니다.",
+      "타겟 미확인·충돌 불편 전체를 20건씩 페이지로 제공합니다. 검색 회차·전체 계획은 상세에 두고, 이전 계획의 결과에는 넓어진 범위로 다시 탐색하는 버튼을 표시합니다."
+    ],
+    "errors": [
+      "연결 실패나 작업 실패를 성공 결과로 처리하지 않습니다. 이전 실행·목업 결과를 새 타겟 수집 결과로 바꾸어 보여주지 않습니다.",
+      "실제 수집 조건과 글쓴이에게 확인된 속성을 구분하며, 결과 0건을 조건 완화로 숨기지 않습니다."
+    ],
+    "guard": "현재 사용자 경로는 reference-pages/config → loading → result → detail입니다. React 화면은 사용하지 않습니다. 상태 API와 실제 화면 동작은 구현 완료 후 별도로 검증합니다.",
+    "path": "수집 작업 POST / 작업 상태 GET + reference-pages/{config,loading,result,detail}.html"
+  }
+];
+const mappings = [
+ ['⑧','이 문제를 믿어도 되는가','②′ 집계','실제 사례·출처·대표 근거와 기준값을 함께 보여줍니다. 미리 정한 기준의 통과 사실이며 신뢰 점수가 아닙니다.','gate · source_kind_counts · source_name_counts','document'],
+ ['④','얼마나 꾸준히 나타나나','②′ 집계','원문 작성일을 주별로 묶습니다. 최신순 수집 창 안의 작성일 분포이며 언급량 증가·트렌드로 해석하지 않습니다. 날짜 없는 글은 별도 표시합니다.','weekly_counts · observed_weeks · undated_count','document'],
+ ['⑦','얼마나 불편해하나','② 라벨 → ②′ 집계','높음·중간·낮음 라벨을 세고 판정된 수를 분모로 표시합니다. 해결책을 원하는 표현도 셉니다. AI 판정 표시와 표본 부족 처리가 필요합니다.','severity_counts · severity_labeled_count · need_signal_count','llm'],
+ ['①','돈이 걸린 문제인가','② 규칙 → ②′ 집계','원문에 돈 관련 표현이 등장한 사례 수를 전체 사례 수와 함께 보여줍니다. 실제 결제·지불 의사·시장 규모를 추정하지 않습니다.','payment_signal_count / case_count','document'],
+ ['⑤','누가 겪고 있나','출처 집계 + AI 라벨','어디서 말하는지를 주력으로, 명시된 역할·나이대·성별을 보조로 봅니다. 각 라벨 분모가 3건 미만이면 분포를 숨깁니다.','role_counts · age_counts · gender_counts · *_labeled_count','llm'],
+ ['②','이미 나와 있는 것들','② 라벨 → ②′ 집계','원문에 직접 언급된 서비스 이름만 집계합니다. 앱 리뷰 수집이나 경쟁 서비스의 불만 분석이 구현됐다는 뜻은 아닙니다.','mentioned_services[].name / count','llm'],
+ ['⑥','왜 이런 문제가 생겼나','③ AI 서술','근거에서 드러나는 상황·제약·맥락을 설명합니다. 근거가 뒷받침하지 않는 구조적 원인은 사실로 단정하지 않습니다.','Problem.context','llm'],
+ ['③','만들기에 얼마나 복잡한가','③ AI 서술','문제 해결에 영향을 주는 제약과 불확실성을 문장으로 설명합니다. 복잡도 점수·등급이나 아이디어 목록을 만들지 않습니다.','Problem.complexity_note','llm']
+];
+const typeNames={confirmed:'사용자 확정',document:'문서 기준',temporary:'임시값',pending:'미결정',inference:'에이전트 제안'};
+const decisions=[
+  [
+    "confirmed",
+    "아이디어·개인화는 잠금",
+    "문제정의와 상세 근거페이지 정보를 만들어내는 단계까지 구현합니다.",
+    "이번 사용자 요청"
+  ],
+  [
+    "confirmed",
+    "설계·구상·작동·판단을 단일 파일로",
+    "바탕화면에서 열어 활용할 수 있는 시각화 자료 한 파일을 제공합니다.",
+    "이번 사용자 요청"
+  ],
+  [
+    "confirmed",
+    "타겟은 나이대·성별·직업·장소",
+    "네 항목 중 최소 두 항목. 카테고리·플랫폼 선택은 제거하고 직업·장소는 Enter 키워드 칩으로 입력합니다.",
+    "DATA_SPEC §1 / 2026-09-12 사용자 최종 결정"
+  ],
+  [
+    "confirmed",
+    "기준 reference 디자인을 사용, React는 사용하지 않음",
+    "기존 기준 HTML 화면의 디자인을 유지하면서 실제 수집·진행·실행 결과를 연결합니다. React 대안은 이번 사용자 경로에 사용하지 않습니다.",
+    "최신 사용자 결정 / reference 디자인 유지"
+  ],
+  [
+    "confirmed",
+    "입력 타겟에 맞춰 실제 수집",
+    "나이대·성별·직업·장소에 입력한 정보를 검색 조건으로 사용합니다. 탐색은 새로운 수집 작업을 시작하며 기존 결과를 거르는 것만으로 대체하지 않습니다.",
+    "최신 사용자 요청: “입력되는 정보에 맞게 수집”"
+  ],
+  [
+    "confirmed",
+    "앞으로의 수정사항도 바탕화면 지도에 반영",
+    "설계·작동·판단이 바뀌면 이 시각화 파일도 함께 갱신하고 바탕화면 사본과 동기화합니다.",
+    "최신 사용자 요청: “지금부터 수정사항을 바탕화면 시각화에 반영”"
+  ],
+  [
+    "inference",
+    "항목 간 AND · 직업/장소 키워드 조합 OR",
+    "입력한 나이대·성별·직업·장소를 함께 검색하고 직업·장소의 여러 키워드는 조합별 쿼리로 펼칩니다. 사용자 지정 논리 연산자가 아니라 이번 구현 선택입니다.",
+    "주 에이전트 구현 선택 / 사용자 확정 아님"
+  ],
+  [
+    "inference",
+    "작업 ID별 코퍼스와 결과 격리",
+    "각 탐색의 자료·진행·결과를 작업 ID로 연결해 다른 실행이나 과거 문제를 새 조건의 결과로 섞지 않습니다.",
+    "이번 작업 API·저장 구현 선택"
+  ],
+  [
+    "temporary",
+    "초기 실행 상한은 제한된 기본값",
+    "직업×장소 조합을 다섯 카테고리에서 검색합니다. 보통 5쿼리, 최대 125쿼리이며 쿼리당 최대 10건을 받습니다. 판별은 카테고리당 10건·전체 50건, 문제 초안 최대 5개, 실행은 기본 10분·한 번에 하나입니다. 같은 완료 조건은 1시간 재사용합니다. 운영 적정성은 미결정입니다.",
+    "collections.py · collection_tool.py · settings / 사용자 승인 수치로 간주하지 않음"
+  ],
+  [
+    "pending",
+    "타겟에서 검색 카테고리·소스로 연결하는 정책",
+    "현재는 전체 다섯 카테고리의 제한된 사전 키워드를 타겟 문구에 결합합니다. 금융·헬스케어는 네이버 뉴스, 나머지는 지식iN·카페·다음 블로그를 분배합니다. 동의어·연령 범위 확장 없이 입력 문구로 검색합니다. 출처 배분과 검색 범위의 적정성은 미결정입니다.",
+    "최신 타겟 수집 구조의 미결정 운영 정책"
+  ],
+  [
+    "document",
+    "AI는 라벨·서술, 숫자는 코드 집계",
+    "사례·출처·강도 건수 등은 집계 코드가 셉니다. LLM 모델의 int/float 필드는 테스트에서 차단합니다.",
+    "AI협업.md §1 · DATA_SPEC §4"
+  ],
+  [
+    "document",
+    "이전 결정 이력: 사용자와 무관한 주 1회 배치",
+    "과거 DATA_SPEC §0은 사용자 클릭이 수집을 시작하지 않는 구조였습니다. 최신 타겟 조건 수집 요청으로 대체됐으며 현재 실행 경로의 기준으로 적용하지 않습니다.",
+    "과거 DATA_SPEC §0 → 최신 사용자 결정으로 대체"
+  ],
+  [
+    "document",
+    "근거와 AI 생성 설명을 구분",
+    "실제 근거 영역과 AI 서술 영역을 구분하고 라벨 합에는 AI 판정임을 표시합니다.",
+    "DATA_SPEC §3–4"
+  ],
+  [
+    "document",
+    "근거 필터는 네 가지",
+    "전체·강한 불만·돈 언급·해결책 탐색. 건별 라벨을 전달하여 화면에서 필터링합니다.",
+    "DATA_SPEC §3 · AI협업.md §3-1"
+  ],
+  [
+    "document",
+    "연령·성별은 명시적 자기 서술만",
+    "직업·문체로 성별과 연령을 추정하지 않습니다. 분모 없는 건수도 표시하지 않습니다.",
+    "AI협업.md §1 · DATA_SPEC §8"
+  ],
+  [
+    "document",
+    "돈 언급과 지불 의사를 구분",
+    "별도 PAYMENT_SIGNALS 사전으로 돈 표현 등장 여부만 셉니다. 불편 판별용 사전과 합치지 않습니다.",
+    "DATA_COLLECTION §5-1 · DATA_SPEC §3"
+  ],
+  [
+    "document",
+    "주별 그래프는 수집된 글의 작성일 분포",
+    "실행 시점의 최신순 검색 표본에서 발견한 글의 작성일 분포입니다. 실행별 검색 표본을 설명하며 화제성·언급 증가로 주장하지 않습니다.",
+    "DATA_SPEC §8 / 2026-09-12 대응 확정"
+  ],
+  [
+    "document",
+    "발췌는 허용 자료만",
+    "현재는 summary-only라 발췌가 대부분 비어 있습니다. 출처 링크·요약으로 근거 페이지가 성립해야 합니다.",
+    "AI협업.md §4 · DATA_SPEC §8"
+  ],
+  [
+    "document",
+    "초기에는 게시 전 사람이 검수",
+    "게시 기준 통과와 내용의 사람 승인은 구분합니다. 코드가 명시적 사람 승인 없이 공개 저장하는 것을 차단합니다. 승인 UI·전수 검수 운영 절차는 별도입니다.",
+    "DATA_COLLECTION §9"
+  ],
+  [
+    "temporary",
+    "후보 최소 5건 · 게시 20 / 3 / 3",
+    "유사 글 5건이면 후보. 관련 사례 20건·출처 3곳·대표 근거 3건이 게시 기준. 수치는 데이터로 조정할 임시값입니다.",
+    "settings.MIN_GROUP_SIZE / PUBLISH_MIN_* · DATA_SPEC §6"
+  ],
+  [
+    "temporary",
+    "대표 근거 최대 5건 · 라벨 분모 최소 3건",
+    "조회 기본 창은 8주. 표본이 부족한 속성 분포는 감춥니다. 구현 상수이며 사용자 개인의 승인으로 기록하지 않습니다.",
+    "settings.EVIDENCE_SHOW_MAX / MIN_LABELED_TO_SHOW / EVIDENCE_LOOKBACK_WEEKS"
+  ],
+  [
+    "temporary",
+    "묶기는 TF-IDF 0.45",
+    "문서의 임베딩은 구상 단계입니다. 현재 설정·코드는 TF-IDF이며 한국어 임베딩 모델은 선정되지 않았습니다.",
+    "settings.CLUSTER_BACKEND · cluster_tool.current_vectorizer"
+  ],
+  [
+    "pending",
+    "‘서로 다른 출처 3곳’의 실질 정의",
+    "현재 코드는 source_name별로 셉니다. 검색 엔드포인트·매체·운영사를 어떤 독립성 단위로 볼지는 별도 결정이 필요합니다.",
+    "DATA_SPEC §6-2 · GEMINI_PILOT 관측 결과"
+  ],
+  [
+    "pending",
+    "지식iN·카페를 실제 표본으로 채택",
+    "검색 엔드포인트는 구현돼 있습니다. 커뮤니티를 정식 수집 범위로 넣을지와 품질·출처 정의는 별도입니다.",
+    "DATA_SOURCES §2 구현 상태 · DATA_SPEC §6-1"
+  ],
+  [
+    "pending",
+    "발췌 범위·상한과 본문 필요성",
+    "25자는 기존 설계값. 검색 스니펫으로 충분한지, 허용되는 인용 범위와 길이는 소스별 확인이 남았습니다.",
+    "DATA_SPEC §5–6 · DATA_SOURCES §8"
+  ],
+  [
+    "pending",
+    "타겟 검색 적합도와 확인 속성의 커버리지",
+    "입력한 타겟에 맞는 글을 실제로 찾는지, 나이·성별·역할이 원문에 얼마나 명시되는지 별도 검증합니다. 검색어 일치를 속성 확인으로 간주하지 않습니다.",
+    "최신 타겟 수집 요청 + 기존 DATA_SPEC §6-5,7"
+  ],
+  [
+    "pending",
+    "운영 비용·작업 상한·검수·운영 저장소",
+    "요청당 검색/LLM 상한, 동시 작업·재시도, 운영 저장소와 검수 범위의 적정성을 결정해야 합니다. 과거 배치 요일·시각은 현재 목표의 선행 조건이 아닙니다.",
+    "최신 작업 기반 수집의 운영 판단 / 구현값과 사용자 확정 분리"
+  ],
+  [
+    "pending",
+    "새 소스와 임베딩 모델",
+    "공공데이터·Threads 등은 승인/필드 확인 대상입니다. 리뷰·YouTube·크롤러와 한국어 임베딩은 별도 착수·선정 대상입니다.",
+    "DATA_SOURCES §2,8 · DATA_COLLECTION §10–11"
+  ],
+  [
+    "inference",
+    "새 질문형 표본으로 다음 평가",
+    "블로그 중심 파일럿만으로 전체 품질을 판단하지 않고 커뮤니티·질문형 글에서 별도 평가를 진행하자는 후속 제안입니다.",
+    "GEMINI_PILOT 다음 우선순위 / 에이전트 제안"
+  ],
+  [
+    "inference",
+    "실제 모드에서 빈 결과를 유지",
+    "타겟 수집 완료 후 결과가 없으면 0건을 그대로 보여줍니다. 조건을 낮추거나 과거·목업 문제로 채우지 않고 작업 실패와 정상 빈 결과를 구분하는 구현 방침입니다.",
+    "이번 구현 검증 제안 / 사용자 승인으로 간주하지 않음"
+  ]
+];
+function esc(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const byId=id=>document.getElementById(id);
+byId('example-title').textContent=GENERATED_EXAMPLE.title;byId('example-description').textContent=GENERATED_EXAMPLE.description;byId('example-context').textContent='맥락: '+GENERATED_EXAMPLE.context+' · 복잡성: '+GENERATED_EXAMPLE.complexity_note;byId('example-evidence').textContent='입력 근거 요약: '+GENERATED_EXAMPLE.evidence[0].summary;
+byId('overall-title').textContent=IMPLEMENTATION_STATUS.title;byId('overall-text').textContent=IMPLEMENTATION_STATUS.summary;byId('road-a-state').textContent=IMPLEMENTATION_STATUS.roadmapA;byId('road-b-state').textContent=IMPLEMENTATION_STATUS.roadmapB;
+byId('workflow').innerHTML=stages.map((s,i)=>`<button type="button" class="node" data-stage="${i}" data-kind="${s.kind}" aria-pressed="${i===0}" aria-controls="inspector"><span class="num">${s.num}</span><span class="name">${s.name}</span><span class="desc">${s.desc}</span><span class="badge ${s.kind==='work'?'progress':s.kind==='llm'?'llm':'live'}">${esc(IMPLEMENTATION_STATUS.stages[i])}</span></button>`).join('');
+function showStage(i){const s=stages[i];document.querySelectorAll('[data-stage]').forEach((b,j)=>b.setAttribute('aria-pressed',String(i===j)));byId('inspector').innerHTML=`<div class="inspect-main"><p class="eyebrow">${s.agent}</p><div class="inspect-head"><h2>${s.name}</h2><span class="badge ${s.kind==='llm'?'llm':s.kind==='work'?'progress':'live'}">${s.kind==='llm'?'규칙 + LLM':s.kind==='work'?'이번 구현·연결':'LLM 호출 없음'}</span></div><p class="step-subtitle">${s.purpose}</p><div class="io"><div><span class="label">Input</span><strong>${esc(s.input)}</strong><p>${s.inputText}</p></div><div><span class="label">Output</span><strong>${esc(s.output)}</strong><p>${s.outputText}</p></div></div><ol class="sequence">${s.steps.map(x=>'<li>'+esc(x)+'</li>').join('')}</ol></div><aside class="inspect-side"><h3>현재 검증 상태</h3><p class="small muted">${esc(IMPLEMENTATION_STATUS.stageNotes[i])}</p><h3 style="margin-top:20px">실패·부족한 자료 처리</h3><ul>${s.errors.map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><p class="note">${s.guard}</p><p class="code muted">${s.path}</p></aside>`;}
+document.querySelectorAll('[data-stage]').forEach(b=>b.addEventListener('click',()=>showStage(Number(b.dataset.stage))));showStage(0);
+byId('print-stages').innerHTML=stages.map((s,i)=>`<article class="print-stage"><h3>${s.name} · ${esc(IMPLEMENTATION_STATUS.stages[i])}</h3><p>${s.purpose}</p><p><b>입력:</b> ${esc(s.input)} · ${s.inputText}<br><b>출력:</b> ${esc(s.output)} · ${s.outputText}</p><ul>${s.steps.map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><p><b>검증:</b> ${esc(IMPLEMENTATION_STATUS.stageNotes[i])}<br><b>주의:</b> ${s.guard}</p><p class="small">${s.errors.join(' ')}</p></article>`).join('');
+byId('screen-map').innerHTML=mappings.map(m=>`<article class="mapping"><span class="index">${m[0]}</span><div><h3>${m[1]}</h3><p><span class="badge ${m[5]}">${m[2]}</span></p><p>${m[3]}</p><code>${m[4]}</code></div></article>`).join('');
+byId('decision-list').innerHTML=decisions.map((d,i)=>`<article class="decision" data-type="${d[0]}" data-index="${i}"><span class="badge ${d[0]}">${typeNames[d[0]]}</span><div><h3>${esc(d[1])}</h3><p>${esc(d[2])}</p></div><div class="source">${esc(d[3])}</div></article>`).join('');
+let selectedFilter='all';function filterDecisions(){const q=byId('search').value.trim().toLowerCase();let count=0;document.querySelectorAll('.decision').forEach(el=>{const d=decisions[Number(el.dataset.index)];const show=(selectedFilter==='all'||d[0]===selectedFilter)&&d.join(' ').toLowerCase().includes(q);el.hidden=!show;if(show)count++;});byId('decision-count').textContent=`${decisions.length}개 판단 기록 중 ${count}개 표시`;}
+document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{selectedFilter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(el=>el.setAttribute('aria-pressed',String(el===b)));filterDecisions();}));byId('search').addEventListener('input',filterDecisions);filterDecisions();
+const tabs=Array.from(document.querySelectorAll('[role=tab]'));function selectTab(tab,focus=false){tabs.forEach(t=>{const active=t===tab;t.setAttribute('aria-selected',String(active));t.tabIndex=active?0:-1;byId(t.getAttribute('aria-controls')).hidden=!active;});if(focus)tab.focus();}
+tabs.forEach((t,i)=>{t.addEventListener('click',()=>selectTab(t));t.addEventListener('keydown',e=>{let next;if(e.key==='ArrowRight')next=(i+1)%tabs.length;if(e.key==='ArrowLeft')next=(i+tabs.length-1)%tabs.length;if(e.key==='Home')next=0;if(e.key==='End')next=tabs.length-1;if(next!==undefined){e.preventDefault();selectTab(tabs[next],true);}});});
+let openBefore=[];window.addEventListener('beforeprint',()=>{openBefore=Array.from(document.querySelectorAll('details')).map(d=>d.open);document.querySelectorAll('details').forEach(d=>d.open=true);});window.addEventListener('afterprint',()=>document.querySelectorAll('details').forEach((d,i)=>d.open=openBefore[i]));byId('print').addEventListener('click',()=>window.print());
+byId('export').addEventListener('click',()=>{const lines=['# 유레카 에이전트 판단 기록','기준: 2026-09-14','',IMPLEMENTATION_STATUS.title,IMPLEMENTATION_STATUS.summary,'',...decisions.flatMap(d=>[`## [${typeNames[d[0]]}] ${d[1]}`,d[2],`근거: ${d[3]}`,''])];const url=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\n')],{type:'text/markdown;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='유레카-에이전트-판단기록-2026-09-14.md';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+</script></body></html>

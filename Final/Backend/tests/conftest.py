@@ -60,7 +60,7 @@ def isolated_settings(tmp_path, monkeypatch):
     monkeypatch.setenv("CORPUS_DIR", str(corpus_dir))
     monkeypatch.setenv("LLM_DRY_RUN", "true")
 
-    overrides = {"CORPUS_DIR": corpus_dir, "LLM_DRY_RUN": True}
+    overrides = {"CORPUS_DIR": corpus_dir, "PROBLEMS_DIR": tmp_path / "problems", "COLLECTIONS_DIR": tmp_path / "collections", "SEARCH_QUOTA_DIR": None, "LLM_DRY_RUN": True}
     before = {k: getattr(live, k) for k in overrides}
     for k, v in overrides.items():
         setattr(live, k, v)

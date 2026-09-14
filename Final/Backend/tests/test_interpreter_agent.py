@@ -606,6 +606,26 @@ def test_원문을_되짚을_수_없는_지난_판정은_합류시키지_않는�
 
 
 # ══════════════════════════════════════════════
+# 승격된 후보가 디스크에 남는다 — ②′ 근거 조립기가 읽을 수 있어야 한다
+# ══════════════════════════════════════════════
+
+
+def test_run_이후_corpus_tool_로_승격된_후보를_다시_읽을_수_있다():
+    candidates = run(회의록_묶음())
+
+    reloaded = corpus_tool.load_candidates(category=CATEGORY)
+
+    assert len(reloaded) == 1
+    assert reloaded == candidates
+
+
+def test_후보가_없으면_candidates_파일을_안_만든다():
+    assert run(회의록_묶음(count=3)) == []  # 5건 미만 → 승격 대기, 후보 아님
+
+    assert corpus_tool.load_candidates(category=CATEGORY) == []
+
+
+# ══════════════════════════════════════════════
 # 매니페스트 — 단계별 잔존 건수
 # ══════════════════════════════════════════════
 
@@ -650,3 +670,67 @@ def test_매니페스트의_숫자는_실행이_만든_것이다():
 
     assert 매니페스트()["후보"] == 1
     assert not find_aggregate_numbers(" ".join(candidate.pain_summaries))
+
+
+def test_semantic_target_saves_unknown_and_clusters_only_confirmed(monkeypatch):
+    from app.schemas.collections import TargetProfile
+    from app.tools.target_evidence_tool import profile_key
+    profile=TargetProfile(jobs=["마케터"],places=["회사"])
+    inputs=회의록_묶음(3)
+    seen={}
+    def fake(items, **kwargs):
+        seen["target"]=kwargs["target_profile"]
+        return [Judgement(raw_item_id=i.id,is_pain=True,pain_summary="보고 기록을 따로 옮겨 적느라 시간이 소요됨",confidence="높음",
+            pain_status="pain",target_status=status,target_profile_key=profile_key(profile),target_policy="evidence_v2")
+            for i,status in zip(items,["confirmed","unconfirmed","conflict"])]
+    monkeypatch.setattr(llm_tool,"judge_pains",fake)
+    monkeypatch.setattr("app.tools.cluster_tool.group",lambda pool:seen.setdefault("pool",list(pool)) and [])
+    agent=InterpreterAgent()
+    agent.run(InterpretInput(items=inputs,category=CATEGORY,target_profile=profile,require_target_confirmation=True,include_pending=False))
+    assert seen["target"]==profile
+    assert len(corpus_tool.load_judgements(category=CATEGORY))==3
+    assert [j.target_status for j in seen["pool"]]==["confirmed"]
+    assert agent.target_confirmed_ids=={inputs[0].id}
+    assert agent.target_unconfirmed_ids=={inputs[1].id}
+    assert agent.target_conflicting_ids=={inputs[2].id}
+
+
+def test_partial_llm_failure_checkpoint_keeps_success_and_excludes_overflow(monkeypatch):
+    from app.core.llm import LLMError
+    from app.schemas.collections import TargetProfile
+    profile=TargetProfile(jobs=["마케터"],places=["회사"])
+    inputs=회의록_묶음(5)
+    for item in inputs:
+        item.title="회의록 입력"
+        item.snippet="저는 마케터이고 회사에서 매번 손으로 회의록을 옮겨 적느라 마감 시간을 넘겼습니다."
+    advertisement=raw(99,"협찬 글","협찬을 받아 사용하는 제품을 소개하는 광고 글입니다. 매번 일일이 정리하시는 분들을 위한 상품입니다.")
+    class Fake:
+        calls=0
+        def complete_json(self,prompt,**kwargs):
+            self.calls+=1
+            if self.calls==2: raise LLMError("batch interrupted")
+            return [dict(id=item.id,is_pain=False,pain_status="not_pain",confidence="높음",experience_type="self",experience_evidence=item.snippet,
+                target_values={"jobs":"마케터","places":"회사"},target_field_status={"jobs":"confirmed","places":"confirmed"},target_evidence={"jobs":item.snippet,"places":item.snippet}) for item in inputs[:2]]
+    fake=Fake()
+    monkeypatch.setattr(llm_tool,"get_llm",lambda:fake)
+    monkeypatch.setattr(settings,"JUDGE_BATCH_SIZE",2)
+    agent=InterpreterAgent()
+    agent.run(InterpretInput(items=inputs+[advertisement],category=CATEGORY,target_profile=profile,require_target_confirmation=True,include_pending=False,max_llm_items=4))
+    assert agent.processed_raw_ids=={inputs[0].id,inputs[1].id,advertisement.id}
+    assert agent.failed_raw_ids=={inputs[2].id,inputs[3].id}
+    assert inputs[4].id not in agent.processed_raw_ids | agent.failed_raw_ids
+    assert set(agent.llm_diagnostics["failed_raw_ids"])==agent.failed_raw_ids
+
+
+def test_latest_negative_pending_judgement_revokes_old_pain(monkeypatch):
+    item=회의록_묶음(1)[0]
+    positive=Judgement(raw_item_id=item.id,is_pain=True,pain_summary="기록을 옮기는 작업 때문에 마감이 지연됨",confidence="높음")
+    negative=positive.model_copy(update={"is_pain":False,"pain_summary":None,"pain_status":"not_pain"})
+    agent=InterpreterAgent()
+    monkeypatch.setattr(agent,"_recent_raw_map",lambda category:{item.id:item})
+    monkeypatch.setattr(corpus_tool,"recent_weeks",lambda *args:["2026-W37","2026-W36"])
+    for current in [[positive,negative],[negative]]:
+        monkeypatch.setattr(corpus_tool,"load_judgements",lambda week,category:current if week=="2026-W37" else [positive])
+        pool=[]
+        _,count=agent._merge_pending(pool,{},CATEGORY)
+        assert count==0 and pool==[]

@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EUREKA - 개인화 맞춤 아이디어 설정</title>
+  <!-- Google Fonts: IBM Plex Sans KR, Noto Sans KR, Inter & Iceland -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@200;300;400;500;600;700&family=Iceland&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
+      background: linear-gradient(104deg, #EBF4FC 0%, #F1EDFF 100%);
+      color: #333;
+      overflow-x: hidden;
+    }
+
+    /* 상단 고정 헤더 GNB 바 (기존 페이지들과 100% 동일) */
+    .fixed-gnb {
+      width: 100%;
+      height: 75px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      justify-content: center;
+      background: rgba(246, 245, 253, 0.60);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 1000001;
+      border: none !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .fixed-gnb-inner {
+      width: 1312px;
+      max-width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+    }
+
+    @media (max-width: 1440px) {
+      .fixed-gnb-inner {
+        width: 100%;
+        padding: 0 64px;
+      }
+    }
+
+    .nav-item {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .nav-item:hover {
+      opacity: 0.7;
+    }
+
+    /* 메인 1440px 캔버스 컨테이너 */
+    .page-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding-top: 75px;
+      padding-bottom: 100px;
+    }
+
+    .canvas-container {
+      width: 1440px;
+      min-height: 900px;
+      position: relative;
+      padding-top: 50px;
+      padding-bottom: 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 타이틀 섹션 */
+    .page-title {
+      font-size: 32px;
+      font-weight: 500;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: #000000;
+      text-align: center;
+      margin-bottom: 12px;
+      line-height: 48px;
+    }
+
+    .page-subtitle {
+      font-size: 20px;
+      font-weight: 400;
+      font-family: 'Inter', sans-serif;
+      color: #4E4E4E;
+      text-align: center;
+      line-height: 32px;
+      margin-bottom: 40px;
+      word-break: keep-all;
+    }
+
+    /* 2개 대형 카드의 나란한 행 */
+    .cards-row-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 25px;
+      margin-bottom: 45px;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 흰색 개인화 설정 카드 피그마 규격 */
+    .option-card-box {
+      width: 656px;
+      height: 510px;
+      background: #FFFFFF;
+      box-shadow: 0px 0px 50px 10px rgba(125.05, 125.05, 125.05, 0.04);
+      border-radius: 30px;
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: flex-start;
+      gap: 25px;
+      box-sizing: border-box;
+      transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 오른쪽 카드 & 하단 버튼 초기 숨김 및 등장 트랜지션 */
+    #right-card-box {
+      display: none;
+      opacity: 0;
+      transform: translateX(40px) scale(0.95);
+    }
+
+    #right-card-box.show {
+      display: inline-flex !important;
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+
+    #submit-btn-box {
+      display: none;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    #submit-btn-box.show {
+      display: flex !important;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .option-card-box.card-left {
+      padding: 26px 111px 23px 56px;
+    }
+
+    .option-card-box.card-right {
+      padding: 26px 70px 24px 56px;
+    }
+
+    .question-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .question-title {
+      font-size: 24px;
+      font-weight: 500;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: #000000;
+      line-height: 50px;
+      word-break: keep-all;
+    }
+
+    .question-title-sub {
+      font-size: 16px;
+      font-weight: 500;
+      color: #818181;
+      font-family: 'Noto Sans KR', sans-serif;
+      line-height: 50px;
+    }
+
+    /* 선택 칩 그루핑 및 칩 버튼 스타일 (피그마 수치 동일) */
+    .chips-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .chip-btn {
+      padding: 8px 15px;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      font-weight: 600;
+      line-height: 22.75px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    /* 태그 입력 상자 스타일 (530px x 84px 피그마 규격) */
+    .tag-input-container {
+      width: 530px;
+      height: 84px;
+      background: #FFFFFF;
+      border-radius: 10px;
+      border: 1.30px solid #DADADA;
+      padding: 10px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 6px;
+      overflow-y: auto;
+      box-sizing: border-box;
+      cursor: text;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .tag-input-container:focus-within {
+      border-color: #6B42FF;
+      box-shadow: 0 0 0 2px rgba(107, 66, 255, 0.1);
+    }
+
+    .tag-chip-unit {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: #F2EEFF;
+      border-radius: 20px;
+      color: #6B42FF;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      user-select: none;
+    }
+
+    .tag-x-btn {
+      cursor: pointer;
+      font-size: 14px;
+      color: #7C3AED;
+      font-weight: 700;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      transition: background 0.15s ease;
+    }
+
+    .tag-x-btn:hover {
+      background: rgba(107, 66, 255, 0.15);
+    }
+
+    .tag-input-field {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 14px;
+      font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
+      color: #333333;
+      flex: 1;
+      min-width: 140px;
+      height: 28px;
+    }
+
+    /* 기본 비활성 칩 */
+    .chip-btn.inactive {
+      background: #EDEDED;
+      color: #727272;
+    }
+
+    .chip-btn.inactive:hover {
+      background: #E2E2E2;
+      color: #333333;
+    }
+
+    /* 활성화된 보라색 칩 */
+    .chip-btn.active {
+      background: #6B42FF;
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(107, 66, 255, 0.25);
+    }
+
+    /* 추가 조건 입력 텍스트 영역 */
+    .custom-textarea {
+      width: 100%;
+      height: 84px;
+      background: #FFFFFF;
+      border-radius: 10px;
+      border: 1.3px solid #DADADA;
+      padding: 14px 18px;
+      font-size: 15px;
+      font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
+      color: #333333;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .custom-textarea:focus {
+      border-color: #6B42FF;
+    }
+
+    /* 하단 실행 버튼 */
+    .submit-btn-wrapper {
+      display: flex;
+      justify-content: center;
+    }
+
+    .btn-submit-personalize {
+      padding: 16px 48px;
+      background: linear-gradient(90deg, #7C3AED 0%, #6004FF 100%);
+      box-shadow: 0px 4px 15px rgba(96, 4, 255, 0.3);
+      border-radius: 40px;
+      color: #FFFFFF;
+      font-size: 20px;
+      font-weight: 600;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      border: none;
+      user-select: none;
+    }
+
+    .btn-submit-personalize:hover {
+      transform: translateY(-2px);
+      box-shadow: 0px 6px 20px rgba(96, 4, 255, 0.4);
+    }
+    .tag-chip-unit { max-width: 100%; overflow-wrap: anywhere; }
+    #tags-wrapper { max-width: 100%; }
+
+    /* 좁은 화면에서는 아직 연결되지 않은 보조 메뉴를 감추고 홈 로고를 유지한다. */
+    @media (max-width: 800px) {
+      .fixed-gnb-inner { width: 100%; padding: 0 20px; }
+      .fixed-gnb-inner > div { min-width: 0; gap: 16px !important; }
+      .fixed-gnb .nav-item { display: none; white-space: nowrap; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 상단 고정 헤더 GNB 바 (기존 페이지들과 100% 동일) -->
+  <div class="fixed-gnb">
+    <div class="fixed-gnb-inner">
+      <div style="justify-content: flex-start; align-items: center; gap: 50px; display: flex">
+        <div onclick="goHome()" title="홈 화면으로 이동"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 44px; font-family: 'Iceland', cursive; font-weight: 400; line-height: 1.2; cursor: pointer;">
+          EUREKA
+        </div>
+        <div class="nav-item" style="color: black; font-size: 20px;">커뮤니티</div>
+        <div class="nav-item" style="color: black; font-size: 20px;">요금제</div>
+      </div>
+      <div style="justify-content: flex-start; align-items: center; gap: 48px; display: flex">
+        <div class="nav-item" style="color: black; font-size: 20px;">로그인</div>
+        <div class="nav-item" style="color: black; font-size: 20px;">마이페이지</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 메인 레이아웃 래퍼 -->
+  <div class="page-wrapper">
+    <div class="canvas-container">
+
+      <!-- 상단 타이틀 & 설명 -->
+      <h1 class="page-title">내 조건에 맞게 아이디어를 구체화 해볼까요?</h1>
+      <div class="page-subtitle">
+        만들고 싶은 서비스와 현재 조건을 알려주세요.<br />
+        선택한 문제를 바탕으로 내 상황에 맞는 아이디어를 제안해드릴게요.
+      </div>
+
+      <!-- 2개 옵션 선택 카드 (좌/우 나란히 배치) -->
+      <div class="cards-row-container">
+
+        <!-- 좌측 카드 (기본 중앙 노출) -->
+        <div class="option-card-box card-left">
+          <!-- Q1 -->
+          <div class="question-block">
+            <div class="question-title">어떤 형태의 서비스를 만들고 싶나요?</div>
+            <div class="chips-group" id="q1-group">
+              <div class="chip-btn inactive" onclick="selectChip('q1', this)">앱 서비스</div>
+              <div class="chip-btn inactive" onclick="selectChip('q1', this)">웹 서비스</div>
+            </div>
+          </div>
+
+          <!-- Q2 -->
+          <div class="question-block">
+            <div class="question-title">누구의 문제를 해결하고 싶나요?</div>
+            <div class="chips-group" id="q2-group">
+              <div class="chip-btn inactive" onclick="selectChip('q2', this)">개인 고객</div>
+              <div class="chip-btn inactive" onclick="selectChip('q2', this)">기업 / 조직</div>
+            </div>
+          </div>
+
+          <!-- Q3 -->
+          <div class="question-block">
+            <div class="question-title">어느 정도 규모를 생각하고 있나요?</div>
+            <div class="chips-group" id="q3-group">
+              <div class="chip-btn inactive" onclick="selectChip('q3', this)">1인</div>
+              <div class="chip-btn inactive" onclick="selectChip('q3', this)">5인 이하</div>
+              <div class="chip-btn inactive" onclick="selectChip('q3', this)">10인 이상</div>
+              <div class="chip-btn inactive" onclick="selectChip('q3', this)">20인 이상</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측 카드 (최초 숨김 후 3개 조건 선택 시 등장) -->
+        <div class="option-card-box card-right" id="right-card-box">
+          <!-- Q4 -->
+          <div class="question-block">
+            <div class="question-title">어떤 방식으로 서비스를 운영하고 싶나요?</div>
+            <div class="chips-group" id="q4-group">
+              <div class="chip-btn inactive" onclick="selectChip('q4', this)">비수익형</div>
+              <div class="chip-btn inactive" onclick="selectChip('q4', this)">광고 기반</div>
+              <div class="chip-btn inactive" onclick="selectChip('q4', this)">유료 구독·결제</div>
+              <div class="chip-btn inactive" onclick="selectChip('q4', this)">아직 정하지 않았어요</div>
+            </div>
+          </div>
+
+          <!-- Q5 -->
+          <div class="question-block">
+            <div class="question-title">어떤 분야로 문제를 해결하고 싶나요?</div>
+            <div class="chips-group" id="q5-group">
+              <div class="chip-btn inactive" onclick="selectChip('q5', this)">생산성·업무</div>
+              <div class="chip-btn inactive" onclick="selectChip('q5', this)">커리어·교육</div>
+              <div class="chip-btn inactive" onclick="selectChip('q5', this)">라이프스타일</div>
+              <div class="chip-btn inactive" onclick="selectChip('q5', this)">금융</div>
+              <div class="chip-btn inactive" onclick="selectChip('q5', this)">헬스케어</div>
+            </div>
+          </div>
+
+          <!-- Q6 -->
+          <div class="question-block">
+            <div class="question-title">
+              추가로 알려주실 조건이 있나요? <span class="question-title-sub">(선택)</span>
+            </div>
+            <div class="tag-input-container" onclick="focusTagInput()">
+              <div id="tags-wrapper" style="display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center;"></div>
+              <input type="text" id="tag-input" class="tag-input-field"
+                placeholder="키워드 입력 후 스페이스바 또는 엔터를 눌러주세요"
+                onkeydown="handleTagKeyDown(event)" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 하단 실행 버튼 (3개 조건 선택 시 등장) -->
+      <div class="submit-btn-wrapper" id="submit-btn-box">
+        <button class="btn-submit-personalize" onclick="submitPersonalize()">맞춤 아이디어 받기</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+(function () {
+  const options = {
+    q1: ['앱 서비스', '웹 서비스'], q2: ['개인 고객', '기업 / 조직'],
+    q3: ['1인', '5인 이하', '10인 이상', '20인 이상'],
+    q4: ['비수익형', '광고 기반', '유료 구독·결제', '아직 정하지 않았어요'],
+    q5: ['생산성·업무', '커리어·교육', '라이프스타일', '금융', '헬스케어']
+  };
+  const key = 'eureka_personalization';
+  function normalize(value) {
+    const data = value && typeof value === 'object' ? value : {};
+    const result = {};
+    for (const [name, values] of Object.entries(options)) {
+      result[name] = values.includes(data[name]) ? data[name] : null;
+    }
+    result.keywords = Array.isArray(data.keywords) ? [...new Set(data.keywords.filter(x => typeof x === 'string').map(x => x.trim()).filter(Boolean))] : [];
+    result.problemId = /^[1-5]$/.test(String(data.problemId)) ? String(data.problemId) : null;
+    return result;
+  }
+  function read() {
+    const params = new URLSearchParams(parent.__search);
+    let value = {};
+    try { value = JSON.parse(params.has('profile') ? params.get('profile') : localStorage.getItem(key) || '{}'); } catch {}
+    const result = normalize(value);
+    if (params.has('id')) result.problemId = normalize({problemId:params.get('id')}).problemId;
+    return result;
+  }
+  function query(profile) { return '?profile=' + encodeURIComponent(JSON.stringify(normalize(profile))); }
+  function save(profile) { try { localStorage.setItem(key, JSON.stringify(normalize(profile))); } catch {} }
+  function escape(value) {
+    return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function chips(p) { return Object.keys(options).map(k => p[k]).filter(Boolean).concat(p.keywords); }
+  const domains = {
+    '생산성·업무': ['반복 업무의 진행 상황을 놓치는 문제', '업무', ['업무 체크리스트', '진행 요약', '업무 알림'], ['할 일 등록', '완료 기록', '주간 요약']],
+    '커리어·교육': ['학습 계획을 꾸준히 실천하기 어려운 문제', '학습', ['학습 체크인', '학습 회고', '복습 알림'], ['학습 목표 등록', '학습 기록', '주간 회고']],
+    '라이프스타일': ['일상에서 해야 할 일을 잊거나 미루는 문제', '생활', ['생활 루틴 체크', '생활 기록 노트', '생활 일정 알림'], ['루틴 등록', '완료 체크', '주간 기록']],
+    '금융': ['개인 지출 기록을 꾸준히 정리하기 어려운 문제', '지출', ['지출 기록장', '소비 회고 노트', '예산 점검 알림'], ['지출 직접 입력', '분류별 집계', '예산 확인']],
+    '헬스케어': ['일상적인 건강 습관을 꾸준히 기록하기 어려운 문제', '건강 습관', ['건강 습관 체크', '활동 기록 노트', '생활 습관 알림'], ['습관 목표 등록', '활동 직접 기록', '주간 기록 확인']]
+  };
+  const problems = {
+    '1': ['스터디를 꾸준히 참여하기 어려운 문제', '스터디', ['스터디 체크인', '스터디 회고', '스터디 일정 알림'], ['참여 일정 등록', '참여 체크', '주간 회고']],
+    '2': ['남는 식재료와 음식물 쓰레기 문제', '식재료', ['냉장고 재료 체크', '식재료 소비 노트', '소비 기한 알림'], ['재료 등록', '소비 체크', '남은 재료 확인']],
+    '3': ['팀 프로젝트의 업무 분담과 진행 파악이 어려운 문제', '팀 업무', ['팀 업무 체크', '팀 진행 노트', '담당 업무 알림'], ['담당자 지정', '진행 기록', '업무 현황 확인']],
+    '4': ['개인 지출 분류가 번거로운 문제', '지출', ['지출 분류 노트', '소비 패턴 회고', '미분류 지출 알림'], ['지출 직접 입력', '분류 수정', '월별 집계']],
+    '5': ['운동 일지를 꾸준히 작성하기 어려운 문제', '운동', ['운동 체크인', '운동 기록 노트', '운동 일정 알림'], ['운동 등록', '완료 체크', '주간 기록']]
+  };
+  function context(p) { return problems[p.problemId] || domains[p.q5] || ['해결할 문제를 구체화하기', '문제 탐색', ['불편 기록장', '사용자 의견 노트', '문제 검증 체크'], ['불편 등록', '의견 기록', '우선순위 확인']]; }
+  function generate(p) {
+    if (!p.q1 || !p.q2 || !p.q3 || !p.q4 || !p.q5) return [];
+    const [problem, subject, titles, features] = context(p);
+    const smallWords = p.keywords.filter(k => /작은범위|작게|소규모|간단|최소기능|mvp|작은\s*범위/i.test(k));
+    const otherWords = p.keywords.filter(k => !smallWords.includes(k));
+    const small = smallWords.length > 0 || p.q3 === '1인';
+    const platform = p.q1 === '앱 서비스' ? '모바일 앱의 짧은 입력 화면과 알림 설정을 중심으로 구성합니다.' : '설치 없이 브라우저에서 접속하고 링크로 공유할 수 있도록 구성합니다.';
+    const audience = p.q2 === '개인 고객' ? '개인 고객이 자신의 기록을 직접 관리하도록 설계합니다.' : '기업 / 조직의 구성원이 담당자를 지정하고 관리자와 현황을 공유하도록 설계합니다.';
+    const scale = {
+      '1인': '1인이 운영할 수 있도록 외부 자동 연동 없이 직접 입력과 조회부터 시작합니다.',
+      '5인 이하': '5인 이하 팀이 입력 화면, 기록 관리, 운영을 나누어 구현할 수 있는 범위로 구성합니다.',
+      '10인 이상': '10인 이상 팀이 화면, 데이터, 운영 기능을 분담하고 역할별 권한을 관리합니다.',
+      '20인 이상': '20인 이상 팀을 고려해 담당 조직별 권한과 운영 이력 관리를 추가합니다.'
+    }[p.q3];
+    const revenue = {
+      '비수익형': '광고와 유료 결제를 넣지 않고 핵심 기능을 무료로 제공합니다.',
+      '광고 기반': '핵심 기능은 무료로 제공하고 기록 확인 화면에 광고 한 곳을 배치합니다. 입력 흐름에는 광고를 넣지 않습니다.',
+      '유료 구독·결제': '기본 기록은 무료로 제공하고 기간별 상세 보고서를 유료 구독 기능으로 분리합니다.',
+      '아직 정하지 않았어요': '초기 버전에는 광고와 결제를 넣지 않고 이용 반응을 확인한 뒤 운영 방식을 결정합니다.'
+    }[p.q4];
+    const scope = small ? '첫 버전은 핵심 기능 2개로 제한하고 자동 연동과 커뮤니티는 제외합니다.' : '첫 버전은 핵심 기능 3개로 구성하고 사용 반응에 따라 확장합니다.';
+    const keywordNote = (smallWords.length ? '추가 조건 ' + smallWords.map(k => '“' + k + '”').join(', ') + ': ' + scope : '')
+      + (otherWords.length ? ' 추가 검토 조건: ' + otherWords.map(k => '“' + k + '”').join(', ') + '. 이 조건은 요구사항으로 보관했으며, 구체적인 설계 반영 여부는 아직 확인되지 않았습니다.' : '');
+    const domainNote = '문제 분야는 ' + p.q5 + '로 설정합니다.' + (p.problemId ? ' 선택한 원래 문제를 유지하며 이 분야에서의 적용 가능성을 먼저 검토합니다.' : '');
+    return titles.map((title, index) => {
+      const selectedFeatures = (index === 0 ? features : index === 1 ? [features[1], features[2], '기간별 비교'] : [features[0], '일정 알림 설정', features[1]]).slice(0, small ? 2 : 3);
+      const solution = [
+        subject + ' 항목을 등록하고 완료 여부를 체크합니다.',
+        subject + ' 기록을 모아 지난 기간과 비교하고 다음 행동을 정합니다.',
+        subject + ' 일정을 등록하고 사용자가 정한 시간에 알림을 받도록 합니다.'
+      ][index];
+      return {
+        id: String(index + 1).padStart(2, '0'), title,
+        desc: p.q5 + ' 분야의 ' + p.q2 + ' 대상 ' + p.q1 + '. ' + (small ? '핵심 기능 2개부터 시작합니다.' : '핵심 기능 3개로 구성합니다.'),
+        design: {summaryTitle:'아이디어 한눈에 보기', summaryDesc: problem + '를 다루는 ' + p.q1 + '입니다. ' + audience + ' ' + domainNote,
+          solutionTitle:'어떻게 해결하나요?', solutionDesc:[solution, platform, scale, revenue, scope, keywordNote].filter(Boolean).join(' '),
+          featuresTitle:'핵심 기능', features:selectedFeatures},
+        condition:{reflectTitle:'선택한 조건', chips:chips(p), reasonTitle:'조건별 설계 방향',
+          reasonDesc:[p.q1 + ': ' + platform, p.q2 + ': ' + audience, p.q3 + ': ' + scale, p.q4 + ': ' + revenue, domainNote, keywordNote].filter(Boolean).join('\n')}
+      };
+    });
+  }
+  window.Personalization = {read, query, save, escape, chips, context, generate, options};
+})();
+
+</script>
+  <script>
+    function goHome() {
+      parent.__navigate('index.html');
+    }
+
+    // 키워드 태그 관리 배열 & 함수
+    const keywordTags = [];
+
+    function focusTagInput() {
+      document.getElementById('tag-input').focus();
+    }
+
+    function handleTagKeyDown(event) {
+      if (event.isComposing || event.keyCode === 229) return;
+      const input = document.getElementById('tag-input');
+      const value = input.value.trim();
+
+      // Space (32), Enter (13), Comma (,) 키 눌렀을 때 처리
+      if (event.key === ' ' || event.key === 'Enter' || event.key === ',' || event.keyCode === 32 || event.keyCode === 13) {
+        event.preventDefault(); // 스페이스바/엔터 기본 동작(공백 폼 삽입) 방지
+        
+        if (value.length > 0) {
+          if (!keywordTags.includes(value)) {
+            keywordTags.push(value);
+            renderKeywordTags();
+          }
+          input.value = '';
+        }
+      } else if (event.key === 'Backspace' && value === '' && keywordTags.length > 0) {
+        // 입력창이 비어있을 때 백스페이스 누르면 최근 태그 삭제
+        keywordTags.pop();
+        renderKeywordTags();
+      }
+    }
+
+    function removeTag(index) {
+      keywordTags.splice(index, 1);
+      renderKeywordTags();
+    }
+
+    function renderKeywordTags() {
+      const wrapper = document.getElementById('tags-wrapper');
+      const input = document.getElementById('tag-input');
+
+      wrapper.innerHTML = keywordTags.map((tag, idx) => `
+        <div class="tag-chip-unit">
+          <span># ${Personalization.escape(tag)}</span>
+          <span class="tag-x-btn" onclick="event.stopPropagation(); removeTag(${idx})">×</span>
+        </div>
+      `).join('');
+
+      if (keywordTags.length > 0) {
+        input.placeholder = '';
+      } else {
+        input.placeholder = '키워드 입력 후 스페이스바 또는 엔터를 눌러주세요';
+      }
+    }
+
+    // 선택 상태 관리 객체
+    const selections = {
+      q1: null,
+      q2: null,
+      q3: null,
+      q4: null,
+      q5: null
+    };
+
+    // 칩 선택 토글 및 단계별 활성화 제어
+    function selectChip(groupId, element) {
+      const parent = document.getElementById(`${groupId}-group`);
+      if (!parent) return;
+
+      const isCurrentActive = element.classList.contains('active');
+      const siblings = parent.querySelectorAll('.chip-btn');
+      
+      siblings.forEach(btn => {
+        btn.classList.remove('active');
+        btn.classList.add('inactive');
+      });
+
+      if (!isCurrentActive) {
+        element.classList.remove('inactive');
+        element.classList.add('active');
+        selections[groupId] = element.textContent.trim();
+      } else {
+        selections[groupId] = null;
+      }
+
+      checkStepOneCompletion();
+    }
+
+    // 상단 3개 필수 조건 선택 완료 여부 체크
+    function checkStepOneCompletion() {
+      const isStep1Done = selections.q1 && selections.q2 && selections.q3;
+      const rightCard = document.getElementById('right-card-box');
+      const submitBtn = document.getElementById('submit-btn-box');
+
+      if (isStep1Done) {
+        if (!rightCard.classList.contains('show')) {
+          rightCard.style.display = 'inline-flex';
+          submitBtn.style.display = 'flex';
+          requestAnimationFrame(() => {
+            rightCard.classList.add('show');
+            submitBtn.classList.add('show');
+          });
+        }
+      } else {
+        rightCard.classList.remove('show');
+        submitBtn.classList.remove('show');
+        setTimeout(() => {
+          if (!rightCard.classList.contains('show')) {
+            rightCard.style.display = 'none';
+            submitBtn.style.display = 'none';
+          }
+        }, 400);
+      }
+    }
+
+    // 맞춤 아이디어 받기 클릭 처리
+    function submitPersonalize() {
+      if (Object.values(selections).some(value => !value)) {
+        alert('서비스 형태, 대상, 규모, 운영 방식, 분야를 모두 선택해주세요.');
+        return;
+      }
+      const pending = document.getElementById('tag-input').value.trim();
+      if (pending && !keywordTags.includes(pending)) keywordTags.push(pending);
+      const profile = {...selections, keywords:[...keywordTags], problemId:initialProfile.problemId};
+      Personalization.save(profile);
+      parent.__navigate('personalized-result.html' + Personalization.query(profile));
+    }
+
+    const initialProfile = Personalization.read();
+    for (const group of Object.keys(selections)) {
+      const button = [...document.querySelectorAll('#' + group + '-group .chip-btn')]
+        .find(element => element.textContent.trim() === initialProfile[group]);
+      if (button) selectChip(group, button);
+    }
+    keywordTags.push(...initialProfile.keywords);
+    renderKeywordTags();
+  </script>
+</body>
+
+</html>

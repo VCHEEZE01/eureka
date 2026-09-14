@@ -1,6 +1,6 @@
-import { CombinedDetailScreen } from '@/screens/Combine';
+import { notFound } from 'next/navigation';
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <CombinedDetailScreen combinedId={id} />;
+/** 조합된 문제정의(F05)는 현재 잠금 기능이다. */
+export default function Page() {
+  notFound();
 }

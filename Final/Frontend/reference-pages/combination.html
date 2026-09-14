@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EUREKA - 문제 조합 결과</title>
+  <!-- Google Fonts: IBM Plex Sans KR, Noto Sans KR, Inter & Iceland -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@200;300;400;500;600;700&family=Iceland&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
+      background: #FFFFFF;
+      color: #333;
+      overflow-x: hidden;
+    }
+
+    /* 상단 고정 헤더 GNB 바 */
+    .fixed-gnb {
+      width: 100%;
+      height: 75px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      justify-content: center;
+      background: rgba(246, 245, 253, 0.60);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 1000001;
+      border: none !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .fixed-gnb-inner {
+      width: 1312px;
+      max-width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+    }
+
+    @media (max-width: 1440px) {
+      .fixed-gnb-inner {
+        width: 100%;
+        padding: 0 64px;
+      }
+    }
+
+    .nav-item {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .nav-item:hover {
+      opacity: 0.7;
+    }
+
+    /* 1440px 메인 정밀 캔버스 래퍼 (피그마 높이 1802px 최적화) */
+    .page-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding-top: 75px;
+      background: #FFFFFF;
+      padding-bottom: 60px;
+    }
+
+    .canvas-container {
+      width: 1440px;
+      height: 1852px;
+      position: relative;
+      background: #FFFFFF;
+      flex-shrink: 0;
+    }
+
+    /* 상단 타이틀 영역 */
+    .page-title {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      top: 65px;
+      text-align: center;
+      font-size: 36px;
+      font-weight: 500;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: #000000;
+      line-height: 50px;
+    }
+
+    .page-subtitle {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      top: 126px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 400;
+      font-family: 'Inter', sans-serif;
+      color: #4E4E4E;
+    }
+
+    /* 상단 보라색 강조 문제 문구 */
+    .top-highlight-banner {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      top: 220px;
+      text-align: center;
+      color: #6B42FF;
+      font-size: 32px;
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 45px;
+      word-break: keep-all;
+    }
+
+    /* 회색 메인 대형 카드 컨테이너 (#F4F4F4, 1349px x 1288px, top: 432px) */
+    .main-gray-card {
+      width: 1349px;
+      height: 1288px;
+      position: absolute;
+      left: 45.5px;
+      top: 432px;
+      background: #F4F4F4;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    /* 선택된 문제 카드 스타일 (자동 높이 확장) */
+    .problem-card-item {
+      width: 385px;
+      min-height: 147px;
+      height: auto;
+      position: absolute;
+      top: 65px;
+      background: #EBF4FC;
+      border-radius: 15px;
+      padding: 20px 32px 24px 32px;
+      box-sizing: border-box;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+      transition: transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+    }
+
+    .problem-card-item:hover {
+      transform: translateY(-2px);
+    }
+
+    .card-label {
+      color: black;
+      font-size: 20px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    .card-white-pill {
+      width: 100%;
+      min-height: 56px;
+      height: auto;
+      background: white;
+      border-radius: 28px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 20px;
+      box-sizing: border-box;
+    }
+
+    .card-text-inner {
+      width: 100%;
+      text-align: center;
+      color: #0051FF;
+      font-size: 19px;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 25px;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+
+    /* 지속 표출 SVG 굴곡 화살표 영역 (회색 박스 내부) */
+    .static-arrows-svg-box {
+      position: absolute;
+      left: 0;
+      top: 212px;
+      width: 1349px;
+      height: 177px;
+      pointer-events: none;
+    }
+
+    /* 공통으로 나타난 불편 칩 태그 */
+    .lavender-tag-chip {
+      height: 58px;
+      padding: 8px 30px;
+      position: absolute;
+      top: 389px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #F2EEFF;
+      border-radius: 50px;
+      justify-content: center;
+      align-items: center;
+      display: inline-flex;
+      box-shadow: 0 2px 10px rgba(107, 66, 255, 0.06);
+    }
+
+    .lavender-tag-text {
+      text-align: center;
+      color: #3F3F3F;
+      font-size: 20px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 50px;
+    }
+
+    /* 인용문 텍스트 */
+    .quote-statement {
+      position: absolute;
+      width: 100%;
+      top: 478px;
+      text-align: center;
+      color: black;
+      font-size: 24px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      line-height: 45px;
+      word-break: keep-all;
+    }
+
+    /* 삼색 순환 화살표 애니메이션 */
+    @keyframes strokeColorWave {
+      0% {
+        stroke: #F1EDFF;
+      }
+      33% {
+        stroke: #B4A1FA;
+      }
+      66% {
+        stroke: #6B42FF;
+      }
+      100% {
+        stroke: #F1EDFF;
+      }
+    }
+
+    .arrow-down-group {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 595px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      z-index: 10;
+    }
+
+    .arrow-down-group path {
+      stroke: #D1D5DB;
+      transition: stroke 0.3s ease;
+    }
+
+    .arrow-down-group.active .arr1 path {
+      animation: strokeColorWave 0.6s infinite linear 0s;
+    }
+
+    .arrow-down-group.active .arr2 path {
+      animation: strokeColorWave 0.6s infinite linear 0.2s;
+    }
+
+    .arrow-down-group.active .arr3 path {
+      animation: strokeColorWave 0.6s infinite linear 0.4s;
+    }
+
+    /* 새롭게 정의한 문제 보라색 칩 태그 */
+    .purple-tag-chip {
+      height: 58px;
+      padding: 8px 30px;
+      position: absolute;
+      top: 683px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #6B42FF;
+      border-radius: 50px;
+      justify-content: center;
+      align-items: center;
+      display: inline-flex;
+      box-shadow: 0 4px 15px rgba(107, 66, 255, 0.3);
+    }
+
+    .purple-tag-text {
+      text-align: center;
+      color: white;
+      font-size: 20px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 50px;
+    }
+
+    /* 새롭게 정의된 문제 제목 & 50% 투명도 보라색 형광펜 하이라이트 문구 */
+    .defined-problem-wrapper {
+      position: absolute;
+      width: 100%;
+      top: 765px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .defined-highlight-text-group {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hl-line-50 {
+      display: inline-block;
+      color: #000000;
+      font-size: 32px;
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 45px;
+      background: rgba(124, 58, 237, 0.25);
+      padding: 2px 16px;
+      border-radius: 6px;
+      word-break: keep-all;
+    }
+
+    /* 왜 이 문제들이 연결 됐나요? 흰색 박스 (1260px x 132px) */
+    .reason-box {
+      width: 1260px;
+      height: 132px;
+      position: absolute;
+      left: 44.5px;
+      top: 964px;
+      background: #FFFFFF;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 40px;
+      box-sizing: border-box;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+
+    .reason-box-title {
+      font-size: 20px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      color: black;
+      line-height: 36px;
+      margin-bottom: 2px;
+    }
+
+    .reason-box-desc {
+      font-size: 20px;
+      font-family: 'Inter', 'IBM Plex Sans KR', sans-serif;
+      font-weight: 300;
+      color: black;
+      line-height: 34px;
+      text-align: center;
+      word-break: keep-all;
+    }
+
+    /* 하단 버튼 그룹 (문제 저장하기 / 이 문제로 맞춤 아이디어 받기) */
+    .bottom-action-buttons {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      top: 1180px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .btn-save {
+      padding: 18px 30px;
+      background: white;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.10);
+      border-radius: 15px;
+      justify-content: center;
+      align-items: center;
+      display: inline-flex;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid #E5E7EB;
+    }
+
+    .btn-save:hover {
+      background: #F9FAFB;
+      border-color: #6B42FF;
+    }
+
+    .btn-save-text {
+      text-align: center;
+      color: #464646;
+      font-size: 20px;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 23px;
+    }
+
+    .btn-idea {
+      padding: 18px 30px;
+      background: #6B42FF;
+      border-radius: 15px;
+      justify-content: center;
+      align-items: center;
+      display: inline-flex;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0px 4px 14px rgba(107, 66, 255, 0.3);
+      border: none;
+    }
+
+    .btn-idea:hover {
+      background: #5630E5;
+      transform: translateY(-2px);
+    }
+
+    .btn-idea-text {
+      text-align: center;
+      color: white;
+      font-size: 20px;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 23px;
+    }
+
+    /* 좁은 화면에서는 아직 연결되지 않은 보조 메뉴를 감추고 홈 로고를 유지한다. */
+    @media (max-width: 800px) {
+      .fixed-gnb-inner { width: 100%; padding: 0 20px; }
+      .fixed-gnb-inner > div { min-width: 0; gap: 16px !important; }
+      .fixed-gnb .nav-item { display: none; white-space: nowrap; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 상단 고정 헤더 GNB 바 -->
+  <div class="fixed-gnb">
+    <div class="fixed-gnb-inner">
+      <div style="justify-content: flex-start; align-items: center; gap: 50px; display: flex">
+        <div onclick="goHome()" title="홈 화면으로 이동"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 44px; font-family: 'Iceland', cursive; font-weight: 400; line-height: 1.2; cursor: pointer;">
+          EUREKA
+        </div>
+        <div class="nav-item" style="color: black; font-size: 20px;">커뮤니티</div>
+        <div class="nav-item" style="color: black; font-size: 20px;">요금제</div>
+      </div>
+      <div style="justify-content: flex-start; align-items: center; gap: 48px; display: flex">
+        <div class="nav-item" style="color: black; font-size: 20px;">로그인</div>
+        <div class="nav-item" style="color: black; font-size: 20px;">마이페이지</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 메인 1440px 레이아웃 캔버스 -->
+  <div class="page-wrapper">
+    <div class="canvas-container">
+
+      <!-- 페이지 제목 & 서브 설명 -->
+      <div class="page-title">문제 조합 결과</div>
+      <div class="page-subtitle">선택한 문제에서 새로운 문제를 발견했어요</div>
+
+      <!-- 상단 보라색 강조 문구 -->
+      <div class="top-highlight-banner">
+        시작한 프로젝트를 끝까지 이어가기 어렵다 <br />
+        초기 의욕은 높지만 진행 상황을 점검하고 지속하도록 돕는 구조가 부족하다.
+      </div>
+
+      <!-- 메인 회색 연보라 배경 대형 컨테이너 (#F4F4F4, 1349px x 1238px) -->
+      <div class="main-gray-card">
+
+        <!-- 선택된 문제 카드 영역 (동적 2개 or 3개 좌표 자동 정렬) -->
+        <div id="cards-wrapper">
+          <!-- JS 동적 생성 -->
+        </div>
+
+        <!-- 지속 표출 화살표 래퍼 (SVG 곡선 화살표) -->
+        <div class="static-arrows-svg-box">
+          <svg id="arrows-svg" width="1349" height="177" viewBox="0 0 1349 177" fill="none">
+            <!-- JS 동적 생성 -->
+          </svg>
+        </div>
+
+        <!-- 공통으로 나타난 불편 보라색 태그 칩 -->
+        <div class="lavender-tag-chip">
+          <div class="lavender-tag-text" id="common-tag-text">두 문제에서 공통으로 나타난 불편</div>
+        </div>
+
+        <!-- 공통 불편 인용 문구 -->
+        <div class="quote-statement">
+          “처음에는 의욕적으로 시작하지만,<br />
+          진행 상황을 확인하고 지속할 장치가 없어 중간에 흐지부지되는 경우가 많아요.”
+        </div>
+
+        <!-- 마우스 스크롤 시 삼색 파동 애니메이션 세로 화살표 -->
+        <div class="arrow-down-group" id="scroll-animated-arrow" title="스크롤을 내리면 삼색 애니메이션 실행">
+          <svg class="arr arr1" width="22" height="12" viewBox="0 0 16 8" fill="none">
+            <path d="M1.5 1.5L8 6.5L14.5 1.5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg class="arr arr2" width="22" height="12" viewBox="0 0 16 8" fill="none">
+            <path d="M1.5 1.5L8 6.5L14.5 1.5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg class="arr arr3" width="22" height="12" viewBox="0 0 16 8" fill="none">
+            <path d="M1.5 1.5L8 6.5L14.5 1.5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+
+        <!-- 새롭게 정의한 문제 태그 칩 -->
+        <div class="purple-tag-chip">
+          <div class="purple-tag-text">새롭게 정의한 문제</div>
+        </div>
+
+        <!-- 새롭게 정의한 문제 및 50% 투명도 보라색 형광펜 하이라이트 -->
+        <div class="defined-problem-wrapper">
+          <div class="defined-highlight-text-group">
+            <span class="hl-line-50">시작한 프로젝트를 끝까지 이어가기 어렵다</span>
+            <span class="hl-line-50">초기 의욕은 높지만 진행 상황을 점검하고 지속하도록 돕는 구조가 부족하다.</span>
+          </div>
+        </div>
+
+        <!-- 왜 이 문제들이 연결 됐나요? 흰색 박스 -->
+        <div class="reason-box">
+          <div class="reason-box-title">왜 이문제들이 연결 됐나요?</div>
+          <div class="reason-box-desc" id="reason-desc-text">
+            두 문제 모두 ‘시작 이후의 지속 관리 부족’에서 불편이 반복되고 있어,<br />
+            시작 자체보다 지속과 완주를 돕는 문제로 범위를 확장했습니다.
+          </div>
+        </div>
+
+        <!-- 하단 액션 버튼 그룹 (문제 저장하기 / 이 문제로 맞춤 아이디어 받기) -->
+        <div class="bottom-action-buttons">
+          <div class="btn-save" onclick="saveProblemAlert()">
+            <div class="btn-save-text">문제 저장하기</div>
+          </div>
+          <div class="btn-idea" onclick="goIdeaPage()">
+            <div class="btn-idea-text">이 문제로 맞춤 아이디어 받기</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function goHome() {
+      parent.__navigate('index.html');
+    }
+
+    function goIdeaPage() {
+      parent.__navigate('personalize.html');
+    }
+
+    function saveProblemAlert() {
+      alert('문제가 저장되었습니다!');
+    }
+
+    // 샘플 기본 선택 항목 (localStorage 데이터가 없거나 1개 이하인 경우)
+    const defaultSampleSelected = [
+      { id: 1, title: "스터디를 시작해도 <br/>꾸준히 참여하기 어려워요", tag: "교육 / 커리어" },
+      { id: 3, title: "팀 프로젝트 시 <br/>업무 분담 및 가시성 부족", tag: "IT / 생산성" }
+    ];
+
+    // localStorage에서 저장된 조합 선택 문제 가져오기
+    let selectedProblems = [];
+    try {
+      const stored = localStorage.getItem('eureka_selected_combinations');
+      if (stored) {
+        selectedProblems = JSON.parse(stored);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (!selectedProblems || selectedProblems.length < 2) {
+      selectedProblems = defaultSampleSelected;
+    }
+
+    const count = selectedProblems.length;
+
+    // 1. 카드 좌표 계산 및 렌더링 (1349px 회색 컨테이너 내부 좌표)
+    // 3개 선택 시: left 65px, 482px, 899px (각 너비 385px)
+    // 2개 선택 시: left 257px, 707px (각 너비 385px, 대칭 정렬)
+    const cardsWrapper = document.getElementById('cards-wrapper');
+    const commonTagText = document.getElementById('common-tag-text');
+    const reasonDescText = document.getElementById('reason-desc-text');
+
+    commonTagText.textContent = `${count === 2 ? '두' : '세'} 문제에서 공통으로 나타난 불편`;
+
+    if (count === 3) {
+      reasonDescText.innerHTML = `세 문제 모두 ‘시작 이후의 지속 관리 및 동기부여 부족’에서 불편이 반복되고 있어,<br/>시작 자체보다 지속과 완주를 돕는 통합적 문제로 범위를 확장했습니다.`;
+    } else {
+      reasonDescText.innerHTML = `두 문제 모두 ‘시작 이후의 지속 관리 부족’에서 불편이 반복되고 있어,<br/>시작 자체보다 지속과 완주를 돕는 문제로 범위를 확장했습니다.`;
+    }
+
+    let leftPositions = [];
+    if (count === 2) {
+      leftPositions = [257, 707];
+    } else {
+      leftPositions = [65, 482, 899];
+    }
+
+    cardsWrapper.innerHTML = selectedProblems.map((item, idx) => {
+      const posX = leftPositions[idx] || (65 + idx * 417);
+      let formattedTitle = item.title;
+      if (!formattedTitle.includes('<br')) {
+        formattedTitle = formattedTitle.replace(' ', ' <br/>');
+      }
+
+      return `
+        <div class="problem-card-item" style="left: ${posX}px;">
+          <div class="card-label">선택한 문제</div>
+          <div class="card-white-pill">
+            <div class="card-text-inner">${formattedTitle}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // 2. 지속 표출 SVG 굴곡 화살표 그리기
+    function renderStaticArrows() {
+      const svg = document.getElementById('arrows-svg');
+      const targetX = 674.5; // 1349px 컨테이너의 중앙 50%
+      const targetY = 177; // 화살표 도착 지점 (공통 불편 칩 바로 위)
+
+      let svgHtml = `
+        <defs>
+          <marker id="arrowhead" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+            <path d="M 2 2 L 10 6 L 2 10" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          </marker>
+        </defs>
+      `;
+
+      if (count === 2) {
+        // 2개 카드 화살표
+        const x1 = leftPositions[0] + 192.5;
+        const x2 = leftPositions[1] + 192.5;
+
+        svgHtml += `
+          <path d="M ${x1} 0 C ${x1 + 10} 70, ${targetX - 140} 125, ${targetX - 16} ${targetY}" stroke="#333333" stroke-width="2" fill="none" marker-end="url(#arrowhead)" stroke-linecap="round" />
+          <path d="M ${x2} 0 C ${x2 - 10} 70, ${targetX + 140} 125, ${targetX + 16} ${targetY}" stroke="#333333" stroke-width="2" fill="none" marker-end="url(#arrowhead)" stroke-linecap="round" />
+        `;
+      } else {
+        // 3개 카드 화살표
+        const x1 = leftPositions[0] + 192.5;
+        const x2 = leftPositions[1] + 192.5;
+        const x3 = leftPositions[2] + 192.5;
+
+        svgHtml += `
+          <path d="M ${x1} 0 C ${x1 + 15} 70, ${targetX - 160} 120, ${targetX - 22} ${targetY}" stroke="#333333" stroke-width="2" fill="none" marker-end="url(#arrowhead)" stroke-linecap="round" />
+          <path d="M ${x2} 0 C ${x2 - 8} 50, ${targetX + 6} 105, ${targetX} ${targetY}" stroke="#333333" stroke-width="2" fill="none" marker-end="url(#arrowhead)" stroke-linecap="round" />
+          <path d="M ${x3} 0 C ${x3 - 15} 70, ${targetX + 160} 120, ${targetX + 22} ${targetY}" stroke="#333333" stroke-width="2" fill="none" marker-end="url(#arrowhead)" stroke-linecap="round" />
+        `;
+      }
+
+      svg.innerHTML = svgHtml;
+    }
+
+    renderStaticArrows();
+
+    // 3. 스크롤 시 삼색 화살표 애니메이션 트리거
+    const animatedArrow = document.getElementById('scroll-animated-arrow');
+
+    function handleScrollAnimation() {
+      const rect = animatedArrow.getBoundingClientRect();
+      const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+
+      if (rect.top <= windowHeight * 0.9) {
+        animatedArrow.classList.add('active');
+      }
+    }
+
+    window.addEventListener('scroll', handleScrollAnimation);
+    setTimeout(handleScrollAnimation, 100);
+    animatedArrow.classList.add('active');
+  </script>
+</body>
+
+</html>

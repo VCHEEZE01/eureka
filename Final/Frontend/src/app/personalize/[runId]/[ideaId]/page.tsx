@@ -1,10 +1,6 @@
-import { PersonalizedIdeaDetailScreen } from '@/screens/Personalize';
+import { notFound } from 'next/navigation';
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ runId: string; ideaId: string }>;
-}) {
-  const { runId, ideaId } = await params;
-  return <PersonalizedIdeaDetailScreen id={runId} ideaId={ideaId} />;
+/** 개인화 결과 상세(F08)는 현재 잠금 기능이다. */
+export default function Page() {
+  notFound();
 }

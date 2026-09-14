@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EUREKA - 유레카</title>
+  <!-- Google Fonts: IBM Plex Sans KR & Iceland -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@200;300;400;500;600;700&family=Iceland&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      overflow-x: hidden;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      background-color: #F6F5FD;
+      color: #333;
+    }
+
+    /* 100% 풀 위드 섹션 & 중앙 1440px 인너 래퍼 */
+    .section-full {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      position: relative;
+    }
+
+    .inner-content {
+      width: 1440px;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    /* 상단 고정 헤더 GNB 바 */
+    .fixed-gnb {
+      width: 100%;
+      height: 75px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      justify-content: center;
+      background: rgba(246, 245, 253, 0.60);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 1000001; /* 모달 위 최상단 고정 */
+      border: none !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .fixed-gnb-inner {
+      width: 1312px;
+      max-width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+    }
+
+    @media (max-width: 1440px) {
+      .fixed-gnb-inner {
+        width: 100%;
+        padding: 0 64px;
+      }
+    }
+
+    /* 버튼 호버 인터랙션 */
+    [data-속성-1] {
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+
+    [data-속성-1]:hover {
+      transform: translateY(-2px);
+      box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    /* 상단 헤더 메뉴 호버 효과 */
+    .nav-item {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .nav-item:hover {
+      opacity: 0.7;
+    }
+
+    /* 탭 버튼 스타일 */
+    .tab-btn {
+      width: 203px;
+      height: 51px;
+      position: absolute;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      user-select: none;
+    }
+
+    .tab-btn .tab-bg {
+      width: 203px;
+      height: 51px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      border-radius: 50px;
+      transition: background 0.3s ease;
+    }
+
+    .tab-btn .tab-text {
+      width: 203px;
+      position: absolute;
+      left: 0;
+      top: 14px;
+      text-align: center;
+      justify-content: center;
+      display: flex;
+      flex-direction: column;
+      font-size: 20px;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      font-weight: 500;
+      line-height: 22.75px;
+      transition: color 0.3s ease;
+    }
+
+    /* 활성화 탭 */
+    .tab-btn.active .tab-bg {
+      background: #6B42FF !important;
+    }
+
+    .tab-btn.active .tab-text {
+      color: #ffffff !important;
+    }
+
+    /* 비활성화 탭 */
+    .tab-btn:not(.active) .tab-bg {
+      background: #ffffff !important;
+    }
+
+    .tab-btn:not(.active) .tab-text {
+      color: #3F3F3F !important;
+    }
+
+    /* 탭 콘텐츠 애니메이션 */
+    .tab-content-title,
+    .tab-content-desc {
+      transition: opacity 0.25s ease;
+    }
+
+    /* Figma 원본 카드 슬라이드 스타일 */
+    .figma-card {
+      width: 583px;
+      height: 663px;
+      left: 103px;
+      position: absolute;
+      border-radius: 20px;
+      padding: 48px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: background 0.3s ease, box-shadow 0.3s ease, border 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    /* Figma 보라색 카드 (기본/활성화 state: top: 140px 에 다가왔을 때) */
+    .figma-card.active {
+      background: #7C3AED !important;
+      box-shadow: 0px 5px 8px 5px rgba(94.40, 94.40, 94.40, 0.27) !important;
+      border: none !important;
+      color: white !important;
+    }
+
+    .figma-card.active .card-badge {
+      background: rgba(255, 255, 255, 0.22);
+      color: white;
+    }
+
+    .figma-card.active .card-desc {
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    /* Figma 베리언트3 카드 (비활성화 state: 그라데이션 흰색) */
+    .figma-card:not(.active) {
+      background: linear-gradient(180deg, white 0%, rgba(255, 255, 255, 0) 100%) !important;
+      box-shadow: 1px 4px 8px 3px rgba(94.40, 94.40, 94.40, 0.08) !important;
+      border: 1px rgba(69.88, 69.88, 69.88, 0.09) solid !important;
+      color: #222 !important;
+    }
+
+    .figma-card:not(.active) .card-badge {
+      background: #F3F4F6;
+      color: #7C3AED;
+    }
+
+    .figma-card:not(.active) .card-desc {
+      color: #666;
+    }
+
+    /* 2번 관심분야 설정 독립 풀페이지 섹션 스타일 */
+    .config-section-wrapper {
+      width: 100%;
+      min-height: 1024px;
+      height: 1024px;
+      background: linear-gradient(180deg, #EBF4FC 0%, #F6F5FD 100%);
+      display: flex;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 칩 버튼 스타일 (기본 & 활성화 보라색 state) */
+    .chip-btn {
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 미선택 상태 (기본 회색) */
+    .chip-btn:not(.active) {
+      background: #EDEDED;
+      color: #727272;
+    }
+
+    .chip-btn:not(.active):hover {
+      background: #E2E2E2;
+      color: #333;
+    }
+
+    /* 선택 상태 (활성화 보라색 #6B42FF) */
+    .chip-btn.active {
+      background: #6B42FF !important;
+      color: #FFFFFF !important;
+      box-shadow: 0px 4px 10px rgba(107, 66, 255, 0.25);
+    }
+
+    /* 좁은 화면에서는 아직 연결되지 않은 보조 메뉴를 감추고 홈 로고를 유지한다. */
+    @media (max-width: 800px) {
+      .fixed-gnb-inner { width: 100%; padding: 0 20px; }
+      .fixed-gnb-inner > div { min-width: 0; gap: 16px !important; }
+      .fixed-gnb .nav-item { display: none; white-space: nowrap; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 상단 화면 전체(100%) 고정 네비게이션 바 -->
+  <div class="fixed-gnb">
+    <div class="fixed-gnb-inner">
+      <div style="justify-content: flex-start; align-items: center; gap: 50px; display: flex">
+        <div onclick="goHome()" title="홈으로 이동"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 44px; font-family: 'Iceland', cursive; font-weight: 400; line-height: 1.2; word-wrap: break-word; cursor: pointer;">
+          EUREKA</div>
+        <div class="nav-item"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 20px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 400; line-height: 30px; word-wrap: break-word">
+          커뮤니티</div>
+        <div class="nav-item"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 20px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 400; line-height: 30px; word-wrap: break-word">
+          요금제</div>
+      </div>
+      <div style="justify-content: flex-start; align-items: center; gap: 48px; display: flex">
+        <div class="nav-item"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 20px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 400; line-height: 30px; word-wrap: break-word">
+          로그인</div>
+        <div class="nav-item"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 20px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 400; line-height: 30px; word-wrap: break-word">
+          마이페이지</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 1 & 2 페이지 통합 풀 위드 섹션 ================= -->
+  <div class="section-full" style="background: linear-gradient(270deg, #F6F5FD 0%, #EBF4FC 100%);">
+    <div class="inner-content" style="height: 2014px; overflow: hidden;">
+
+      <!-- 1페이지 히어로 콘텐츠 -->
+      <div
+        style="width: 750px; height: auto; left: 86px; top: 341px; position: absolute; justify-content: center; display: flex; flex-direction: column; color: black; font-size: 48px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 500; line-height: 1.3; white-space: nowrap;">
+        어떤 문제부터 풀지 막막하다면?
+      </div>
+      <div
+        style="width: 874px; height: auto; left: 86px; top: 488px; position: absolute; justify-content: center; display: flex; flex-direction: column; color: black; font-size: 36px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 300; line-height: 1.3; word-wrap: break-word">
+        실제 사용자들의 불편과 근거에서<br />프로젝트 아이디어를 발견하세요
+      </div>
+
+      <!-- 비주얼 카드들 -->
+      <div
+        style="width: 375px; height: 203.26px; left: 743px; top: 202.96px; position: absolute; transform: rotate(-10deg); transform-origin: top left; background: #EDEDED; box-shadow: 5px 4px 13px 1px rgba(0, 0, 0, 0.12); border-radius: 30px">
+      </div>
+      <div
+        style="width: 375px; height: 203.26px; left: 1048.12px; top: 204px; position: absolute; transform: rotate(11deg); transform-origin: top left; background: #EDEDED; box-shadow: 5px 4px 13px 1px rgba(0, 0, 0, 0.12); border-radius: 30px">
+      </div>
+      <div
+        style="width: 484.45px; height: 262.58px; left: 811px; top: 580px; position: absolute; background: linear-gradient(114deg, #7C3AED 0%, #7321FF 100%); box-shadow: 5px 4px 13px 1px rgba(0, 0, 0, 0.12); border-radius: 30px">
+      </div>
+
+      <!-- 메인 CTA 버튼 -->
+      <div data-속성-1="기본" onclick="openConfigModal()"
+        style="padding-left: 35px; padding-right: 35px; padding-top: 20px; padding-bottom: 20px; left: 86px; top: 702px; position: absolute; background: linear-gradient(90deg, #4262FF 0%, #457DF6 100%); box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.18); border-radius: 40px; justify-content: center; align-items: center; gap: 10px; display: inline-flex; cursor: pointer;">
+        <div
+          style="text-align: center; justify-content: center; display: flex; flex-direction: column; color: white; font-size: 20px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 500; line-height: 22.75px; word-wrap: break-word">
+          문제 찾으러 가기
+        </div>
+      </div>
+
+      <!-- 2페이지 탭 배경바 -->
+      <div
+        style="width: 885px; height: 71px; left: 289px; top: 1231px; position: absolute; background: white; box-shadow: 0px 5px 10px 2px rgba(0, 0, 0, 0.05); border-radius: 50px">
+      </div>
+
+      <!-- 2페이지 탭 버튼들 -->
+      <div class="tab-btn active" id="tab-1" style="left: 304px; top: 1241px;" onclick="switchTab(1)">
+        <div class="tab-bg"></div>
+        <div class="tab-text">실제 문제</div>
+      </div>
+
+      <div class="tab-btn" id="tab-2" style="left: 520px; top: 1241px;" onclick="switchTab(2)">
+        <div class="tab-bg"></div>
+        <div class="tab-text">근거 있는 선택</div>
+      </div>
+
+      <div class="tab-btn" id="tab-3" style="left: 736px; top: 1241px;" onclick="switchTab(3)">
+        <div class="tab-bg"></div>
+        <div class="tab-text">다양한 가능성</div>
+      </div>
+
+      <div class="tab-btn" id="tab-4" style="left: 952px; top: 1241px;" onclick="switchTab(4)">
+        <div class="tab-bg"></div>
+        <div class="tab-text">내 상황에 맞게</div>
+      </div>
+
+      <!-- 2페이지 탭 타이틀/설명 영역 (동적 콘텐츠) -->
+      <div id="tab-title" class="tab-content-title"
+        style="width: 550px; height: 111px; left: 172px; top: 1479px; position: absolute; justify-content: center; display: flex; flex-direction: column; color: black; font-size: 36px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 500; line-height: 1.25; word-wrap: break-word">
+        아이디어보다,<br />해결할 문제부터 찾습니다.
+      </div>
+      <div id="tab-desc" class="tab-content-desc"
+        style="width: 520px; left: 172px; top: 1626px; position: absolute; justify-content: center; display: flex; flex-direction: column; color: black; font-size: 20px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 200; line-height: 1.5; word-wrap: break-word">
+        막연한 아이디어 생성이 아니라, 실제 사용자 문제와 근거에서 시작해<br />내 프로젝트에 맞는 서비스 아이디어로 발전시킵니다.
+      </div>
+
+      <!-- 2페이지 오른쪽 비주얼 영역 -->
+      <div id="tab-visual"
+        style="width: 535px; height: 353px; left: 733px; top: 1479px; position: absolute; background: #D9D9D9; border-radius: 20px; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; color: #666; font-size: 20px; font-weight: 500;">
+        <span id="visual-label">실제 문제 탐색 비주얼</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 3. 유레카 발견 프로세스 ================= -->
+  <div id="process-scroll-container" class="section-full"
+    style="min-height: 100vh; height: 1024px; background: white; overflow: hidden;">
+
+    <!-- 뷰포트 레이어 (100% 화면 가득 채움) -->
+    <div
+      style="width: 100%; height: 100%; min-height: 1024px; position: relative; background: white; overflow: hidden; display: flex; justify-content: center;">
+
+      <!-- 비대칭 좌(흰색)/우(회색 #EDEDED) 풀배경 레이어 (1440px내 651px/789px 경계선과 100% 일치하는 calc 계산식 적용) -->
+      <div
+        style="position: absolute; left: 0; top: 0; width: calc(50% - 69px); height: 100%; background: white; z-index: 1;">
+      </div>
+      <div
+        style="position: absolute; left: calc(50% - 69px); top: 0; right: 0; height: 100%; background: #EDEDED; z-index: 1;">
+      </div>
+
+      <!-- 1440px 중앙 콘텐츠 레이어 -->
+      <div class="inner-content" style="height: 1024px; display: flex; z-index: 2;">
+
+        <!-- 좌측 고정 타이틀 & 동적 설명 영역 (완전 정지) -->
+        <div style="width: 651px; height: 1024px; position: relative; background: white;">
+          <div
+            style="width: 387px; height: 138px; left: 98px; top: 140px; position: absolute; justify-content: center; display: flex; flex-direction: column; color: black; font-size: 36px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 500; line-height: 44px; word-wrap: break-word">
+            기획의 시작이 달라지는<br />유레카만의 발견 프로세스
+          </div>
+
+          <!-- 동적 스텝 제목 -->
+          <div id="sticky-step-title"
+            style="left: 98px; top: 370px; position: absolute; justify-content: center; display: flex; flex-direction: column; color: #7C3AED; font-size: 32px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 600; line-height: 44px; transition: opacity 0.3s ease;">
+            문제 탐색
+          </div>
+
+          <!-- 동적 스텝 설명 -->
+          <div id="sticky-step-desc"
+            style="width: 504px; left: 98px; top: 456px; position: absolute; justify-content: center; display: flex; flex-direction: column; color: black; font-size: 24px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 200; line-height: 34px; transition: opacity 0.3s ease;">
+            입력한 타겟 조건으로 자료를 수집하고<br />실제 사용자 불편을 판별합니다.
+          </div>
+
+          <!-- 스텝 도트 인디케이터 -->
+          <div style="left: 98px; top: 600px; position: absolute; display: flex; gap: 12px; align-items: center;">
+            <div class="step-dot active" onclick="goToStep(0)"
+              style="width: 32px; height: 8px; border-radius: 4px; background: #7C3AED; transition: all 0.3s ease; cursor: pointer;">
+            </div>
+            <div class="step-dot" onclick="goToStep(1)"
+              style="width: 12px; height: 8px; border-radius: 4px; background: #DDD; transition: all 0.3s ease; cursor: pointer;">
+            </div>
+            <div class="step-dot" onclick="goToStep(2)"
+              style="width: 12px; height: 8px; border-radius: 4px; background: #DDD; transition: all 0.3s ease; cursor: pointer;">
+            </div>
+            <div class="step-dot" onclick="goToStep(3)"
+              style="width: 12px; height: 8px; border-radius: 4px; background: #DDD; transition: all 0.3s ease; cursor: pointer;">
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측 슬라이딩 카드 트랙 영역 -->
+        <div style="width: 789px; height: 1024px; position: relative; background: #EDEDED; overflow: hidden">
+          <div id="process-card-track"
+            style="width: 789px; height: 3200px; position: absolute; left: 0px; top: 0px; background: #EDEDED; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);">
+
+            <!-- 카드 01 (Figma top: 140px, 기본 보라색 state) -->
+            <div class="figma-card active" style="top: 140px;" data-index="0">
+              <div>
+                <div class="card-badge"
+                  style="display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 16px; font-weight: 600; margin-bottom: 24px;">
+                  STEP 01</div>
+                <h3 style="font-size: 32px; font-weight: 700; margin-bottom: 16px; line-height: 1.3;">실제 사용자 문제 탐색</h3>
+                <p class="card-desc" style="font-size: 18px; line-height: 1.6;">입력한 타겟 조건으로 공개 검색 자료를 수집하고, 실제 불편과 근거를 확인합니다.</p>
+              </div>
+              <div
+                style="background: rgba(255,255,255,0.18); border-radius: 14px; height: 320px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 500;">
+                🔍 문제 데이터 카드 및 필터 미리보기
+              </div>
+            </div>
+
+            <!-- 카드 02 (Figma top: 881px, 베리언트3 그라데이션 state) -->
+            <div class="figma-card" style="top: 881px;" data-index="1">
+              <div>
+                <div class="card-badge"
+                  style="display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 16px; font-weight: 600; margin-bottom: 24px;">
+                  STEP 02</div>
+                <h3 style="font-size: 32px; font-weight: 700; margin-bottom: 16px; line-height: 1.3;">신뢰할 수 있는 근거 확인
+                </h3>
+                <p class="card-desc" style="font-size: 18px; line-height: 1.6;">실제 사례 수, 출처 분포, 사용자 생생 원문을 확인하고 명확한 근거를
+                  바탕으로 기획에 확신을 가집니다.</p>
+              </div>
+              <div
+                style="background: rgba(0,0,0,0.03); border-radius: 14px; height: 320px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 500;">
+                📊 사례 수 및 출처 분석 대시보드
+              </div>
+            </div>
+
+            <!-- 카드 03 (Figma top: 1622px, 베리언트3 그라데이션 state) -->
+            <div class="figma-card" style="top: 1622px;" data-index="2">
+              <div>
+                <div class="card-badge"
+                  style="display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 16px; font-weight: 600; margin-bottom: 24px;">
+                  STEP 03</div>
+                <h3 style="font-size: 32px; font-weight: 700; margin-bottom: 16px; line-height: 1.3;">다양한 기본 아이디어 발견
+                </h3>
+                <p class="card-desc" style="font-size: 18px; line-height: 1.6;">같은 문제라도 B2C, B2B, 자동화 등 서로 다른 해결 방향을
+                  제시하는 서비스 아이디어 3~5개를 탐색합니다.</p>
+              </div>
+              <div
+                style="background: rgba(0,0,0,0.03); border-radius: 14px; height: 320px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 500;">
+                💡 아이디어 방향성 제안 카드
+              </div>
+            </div>
+
+            <!-- 카드 04 (Figma top: 2363px, 베리언트3 그라데이션 state) -->
+            <div class="figma-card" style="top: 2363px;" data-index="3">
+              <div>
+                <div class="card-badge"
+                  style="display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 16px; font-weight: 600; margin-bottom: 24px;">
+                  STEP 04</div>
+                <h3 style="font-size: 32px; font-weight: 700; margin-bottom: 16px; line-height: 1.3;">내 상황에 맞춘 아이디어 구체화
+                </h3>
+                <p class="card-desc" style="font-size: 18px; line-height: 1.6;">보유 기술, 개발 기간, 팀 리소스 조건을 적용해 포트폴리오로 즉시 제작
+                  가능한 맞춤형 구체화 결과를 완성합니다.</p>
+              </div>
+              <div
+                style="background: rgba(0,0,0,0.03); border-radius: 14px; height: 320px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 500;">
+                ⚙️ 내 상황(웹/앱/리소스) 조건 입력 & 완성
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 4. 하단 CTA 풀 위드 섹션 ================= -->
+  <div class="section-full" style="height: 512px; background: black;">
+    <div class="inner-content"
+      style="height: 512px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 36px;">
+      <div
+        style="width: 1011px; text-align: center; justify-content: center; display: flex; flex-direction: column; color: white; font-size: 36px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 500; line-height: 44px; word-wrap: break-word">
+        유레카와 함께 해결할 문제부터 찾아보세요
+      </div>
+      <div data-속성-1="베리언트2" onclick="openConfigModal()"
+        style="padding-left: 35px; padding-right: 35px; padding-top: 20px; padding-bottom: 20px; background: white; box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.18); border-radius: 40px; justify-content: center; align-items: center; gap: 10px; display: inline-flex; cursor: pointer;">
+        <div
+          style="text-align: center; justify-content: center; display: flex; flex-direction: column; color: #2C2C2C; font-size: 20px; font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 500; line-height: 22.75px; word-wrap: break-word">
+          문제 찾으러 가기
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 스크립트: 탭 전환, 80% 배율 대응, 슬라이드 스크롤 이동 및 칩 선택 -->
+  <script>
+    // 0. 2번 탐색 설정 페이지(config.html) 이동 핸들러
+    function openConfigModal() {
+      parent.__navigate('config.html');
+    }
+
+    function closeConfigModal() {
+      parent.__navigate('index.html');
+    }
+
+    // 칩 버튼 클릭 시 클릭된 버튼을 보라색(#6B42FF)으로 전환
+    function selectChip(element) {
+      const group = element.closest('.chip-group');
+      if (group) {
+        group.querySelectorAll('.chip-btn').forEach(btn => btn.classList.remove('active'));
+      }
+      element.classList.add('active');
+    }
+
+    function startSearch() {
+      alert('입력하신 타겟 조건으로 실제 사용자 문제 탐색을 시작합니다!');
+      closeConfigModal();
+    }
+    // 1. 2페이지 탭 데이터 & 전환
+    const tabData = {
+      1: {
+        title: "아이디어보다,<br/>해결할 문제부터 찾습니다.",
+        desc: "막연한 아이디어 생성이 아니라, 실제 사용자 문제와 근거에서 시작해<br/>내 프로젝트에 맞는 서비스 아이디어로 발전시킵니다.",
+        label: "실제 문제 탐색 비주얼",
+        bgColor: "#D9D9D9"
+      },
+      2: {
+        title: "카더라가 아닌,<br/>실제 사용자 근거를 봅니다.",
+        desc: "실제 검색 자료에서 판별한 불편과 관련 사례 수,<br/>출처를 직접 확인하고 판단할 수 있습니다.",
+        label: "근거 데이터 분석 비주얼",
+        bgColor: "#E2E8F0"
+      },
+      3: {
+        title: "하나의 문제로,<br/>다양한 가능성을 만듭니다.",
+        desc: "같은 문제라도 B2C, B2B, 자동화 등 서로 다른 방향의<br/>아이디어 3~5개를 자유롭게 탐색할 수 있습니다.",
+        label: "다양한 아이디어 제안 비주얼",
+        bgColor: "#EDE9FE"
+      },
+      4: {
+        title: "내 프로젝트 조건에<br/>딱 맞게 구체화합니다.",
+        desc: "활용 가능한 기술, 리소스, 타깃 조건 등을 반영하여<br/>나만의 프로젝트에 적합한 구체적 아이디어를 제안합니다.",
+        label: "맞춤형 개인화 비주얼",
+        bgColor: "#DDD6FE"
+      }
+    };
+
+    function switchTab(tabIndex) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      const selectedTab = document.getElementById(`tab-${tabIndex}`);
+      if (selectedTab) {
+        selectedTab.classList.add('active');
+      }
+
+      const data = tabData[tabIndex];
+      if (data) {
+        const titleElem = document.getElementById('tab-title');
+        const descElem = document.getElementById('tab-desc');
+        const visualElem = document.getElementById('tab-visual');
+        const visualLabel = document.getElementById('visual-label');
+
+        titleElem.style.opacity = 0;
+        descElem.style.opacity = 0;
+
+        setTimeout(() => {
+          titleElem.innerHTML = data.title;
+          descElem.innerHTML = data.desc;
+          visualElem.style.backgroundColor = data.bgColor;
+          visualLabel.innerText = data.label;
+
+          titleElem.style.opacity = 1;
+          descElem.style.opacity = 1;
+        }, 150);
+      }
+    }
+
+    // 2. 3페이지 카드 순차 이동 제어
+    const processStepsData = [
+      {
+        title: "문제 탐색",
+        desc: "입력한 타겟 조건으로 자료를 수집하고<br/>실제 사용자 불편을 판별합니다."
+      },
+      {
+        title: "근거 확인",
+        desc: "수집된 사례 수, 원문 요약, 출처 정보를 바탕으로<br/>문제가 정말 존재하는지 신뢰할 근거를 직접 확인합니다."
+      },
+      {
+        title: "기본 아이디어 탐색",
+        desc: "발견한 문제에서 출발하는 B2C·B2B·자동화 등<br/>서로 다른 해결 접근의 아이디어 3~5개를 확인합니다."
+      },
+      {
+        title: "구체화 (개인화)",
+        desc: "내 서비스 형태(웹/앱), 타깃, 팀 리소스 조건을 적용해<br/>나만의 프로젝트로 완성할 수 있도록 맞춤 구체화합니다."
+      }
+    ];
+
+    let currentProcessStep = 0;
+    let isWheelLocked = false;
+
+    function goToStep(stepIndex) {
+      if (stepIndex < 0 || stepIndex >= processStepsData.length) return;
+      currentProcessStep = stepIndex;
+      updateProcessUI(currentProcessStep);
+    }
+
+    function updateProcessUI(stepIndex) {
+      const track = document.getElementById('process-card-track');
+      const cards = document.querySelectorAll('.figma-card');
+      const titleElem = document.getElementById('sticky-step-title');
+      const descElem = document.getElementById('sticky-step-desc');
+      const dots = document.querySelectorAll('.step-dot');
+
+      if (!track) return;
+
+      // Y 이동거리: 741px * stepIndex
+      const currentTranslateY = stepIndex * 741;
+      track.style.transform = `translateY(-${currentTranslateY}px)`;
+
+      // 카드 active 보라색 state 적용
+      cards.forEach((card, idx) => {
+        if (idx === stepIndex) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+
+      // 인디케이터 도트 반영
+      dots.forEach((dot, idx) => {
+        if (idx === stepIndex) {
+          dot.style.width = '32px';
+          dot.style.background = '#7C3AED';
+        } else {
+          dot.style.width = '12px';
+          dot.style.background = '#DDD';
+        }
+      });
+
+      // 좌측 고정 타이틀 & 설명 동적 페이드 전환
+      titleElem.style.opacity = 0;
+      descElem.style.opacity = 0;
+
+      setTimeout(() => {
+        titleElem.innerHTML = processStepsData[stepIndex].title;
+        descElem.innerHTML = processStepsData[stepIndex].desc;
+        titleElem.style.opacity = 1;
+        descElem.style.opacity = 1;
+      }, 100);
+    }
+
+    // 화면 축소/확대(80%, 75%, 120% 등) 및 다양한 뷰포트 크기 변화 완벽 대응
+    const processContainer = document.getElementById('process-scroll-container');
+
+    window.addEventListener('wheel', function (e) {
+      if (!processContainer) return;
+      const rect = processContainer.getBoundingClientRect();
+      const vh = window.innerHeight;
+
+      // 3페이지 섹션이 화면 뷰포트 내에 들어왔는지 확인
+      const isVisible = (rect.top < vh && rect.bottom > 0);
+      if (!isVisible) return;
+
+      // 3페이지 섹션 상단이 화면 상단(top: 0) 부근에 정확히 안착했는지 여부 (허용 오차 40px)
+      const isAligned = Math.abs(rect.top) <= 40;
+
+      if (e.deltaY > 0) { // 아래로 마우스 휠
+        if (currentProcessStep < processStepsData.length - 1) {
+          // 화면 상단에 도착하지 않은 상태에서 내려오는 중인 경우
+          if (!isAligned && rect.top > 0) {
+            // 3페이지 상단이 화면의 70% 이내로 들어왔을 때 3페이지 상단으로 화면을 착 안착시킴
+            if (rect.top < vh * 0.7) {
+              e.preventDefault();
+              if (!isWheelLocked) {
+                isWheelLocked = true;
+                const targetY = window.pageYOffset + rect.top;
+                window.scrollTo({ top: targetY, behavior: 'smooth' });
+                setTimeout(() => { isWheelLocked = false; }, 300);
+              }
+            }
+            // 아직 화면 상단에 완전히 닿기 전에는 카드 슬라이드를 진행하지 않음
+            return;
+          }
+
+          // 화면 상단에 완전히 도착한 상태에서만 카드 슬라이드 진행!
+          e.preventDefault();
+          if (!isWheelLocked) {
+            isWheelLocked = true;
+            currentProcessStep++;
+            updateProcessUI(currentProcessStep);
+            setTimeout(() => { isWheelLocked = false; }, 280);
+          }
+        }
+        // 마지막 단계(STEP 04)에서는 preventDefault하지 않고 자연스럽게 4페이지로 이동
+      } else if (e.deltaY < 0) { // 위로 마우스 휠
+        if (currentProcessStep > 0) {
+          // 화면 상단 정렬이 벗어나 있는 경우 먼저 3페이지 상단 위치로 맞춤
+          if (!isAligned && rect.top < 0) {
+            if (rect.bottom > vh * 0.3) {
+              e.preventDefault();
+              if (!isWheelLocked) {
+                isWheelLocked = true;
+                const targetY = window.pageYOffset + rect.top;
+                window.scrollTo({ top: targetY, behavior: 'smooth' });
+                setTimeout(() => { isWheelLocked = false; }, 300);
+              }
+            }
+            return;
+          }
+
+          e.preventDefault();
+          if (!isWheelLocked) {
+            isWheelLocked = true;
+            currentProcessStep--;
+            updateProcessUI(currentProcessStep);
+            setTimeout(() => { isWheelLocked = false; }, 280);
+          }
+        }
+        // STEP 01에서 위로 휠 조작 시 preventDefault하지 않고 자연스럽게 2페이지로 올라감
+      }
+    }, { passive: false });
+  </script>
+
+</body>
+
+</html>

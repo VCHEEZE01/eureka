@@ -1,6 +1,6 @@
-import { PersonalizeFormScreen } from '@/screens/Personalize';
+import { notFound } from 'next/navigation';
 
-export default async function Page({ params }: { params: Promise<{ baseId: string }> }) {
-  const { baseId } = await params;
-  return <PersonalizeFormScreen baseId={baseId} />;
+/** 개인화 설정(F07)은 현재 잠금 기능이다. */
+export default function Page() {
+  notFound();
 }

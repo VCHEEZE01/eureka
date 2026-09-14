@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "build:single": "node scripts/build-single.mjs"
+    "build:single": "node scripts/build-reference-single.mjs",
+    "build:react-single": "node scripts/build-single.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.41.0",

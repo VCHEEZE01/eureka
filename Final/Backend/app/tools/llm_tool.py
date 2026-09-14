@@ -14,9 +14,18 @@ from difflib import SequenceMatcher
 from typing import Optional
 
 from app.config.settings import settings
+from app.schemas.collections import TargetProfile
+from app.tools import target_evidence_tool
 from app.core.llm import LLMError, get_llm
 from app.prompts.interpreter_prompts import judge_pains_prompt
+from app.prompts.problem_prompts import (
+    write_problem_prompt, repair_problem_format_prompt, review_problem_prompt,
+)
 from app.schemas.models import (
+    AGE_BANDS,
+    GENDERS,
+    GENDER_SELF_MENTION_WORDS,
+    SUFFERER_ROLES,
     Idea,
     Judgement,
     Problem,
@@ -26,7 +35,7 @@ from app.schemas.models import (
     ReviewResult,
     UserCondition,
 )
-from app.tools import text_tool
+from app.tools import text_tool, corpus_tool
 
 
 # ── ② 해석기가 쓰는 것 ──────────────────────────
@@ -74,7 +83,7 @@ _TRUE_WORDS = frozenset({"true", "1", "yes", "y", "예", "참"})
 _FALSE_WORDS = frozenset({"false", "0", "no", "n", "아니오", "거짓", "null", "none", ""})
 
 
-def judge_pains(items: list[RawItem]) -> list[Judgement]:
+def judge_pains(items: list[RawItem], *, diagnostics: Optional[dict] = None, target_profile: Optional[TargetProfile] = None) -> list[Judgement]:
     """
     각 원문이 진짜 불편인지 판별한다.
 
@@ -89,7 +98,7 @@ def judge_pains(items: list[RawItem]) -> list[Judgement]:
 
     out: list[Judgement] = []
     for start in range(0, len(items), batch_size):
-        out.extend(_judge_batch(items[start : start + batch_size]))
+        out.extend(_judge_batch(items[start : start + batch_size], diagnostics=diagnostics, target_profile=target_profile))
     return out
 
 
@@ -104,23 +113,31 @@ def judge_call_count(item_count: int) -> int:
 # ── judge_pains 내부 ────────────────────────────
 
 
-def _judge_batch(batch: list[RawItem]) -> list[Judgement]:
+def _judge_batch(batch: list[RawItem], *, diagnostics: Optional[dict] = None, target_profile: Optional[TargetProfile] = None) -> list[Judgement]:
     """배치 하나. 여기서 실패해도 예외를 올리지 않는다."""
     prompt = judge_pains_prompt(
-        json.dumps([_payload(i) for i in batch], ensure_ascii=False, indent=1)
+        json.dumps([_payload(i) for i in batch], ensure_ascii=False, indent=1), target_profile=target_profile
     )
-    kwargs: dict = {"max_tokens": 220 * len(batch) + 400, "temperature": 0.0}
+    kwargs: dict = {"max_tokens": (750 if target_profile else 400) * len(batch) + 400, "temperature": 0.0}
     if settings.judge_model:
         kwargs["model"] = settings.judge_model
 
     try:
         raw = get_llm().complete_json(prompt, **kwargs)
     except LLMError as e:
+        if diagnostics is not None:
+            diagnostics["failed_batches"] = diagnostics.get("failed_batches", 0) + 1
+            diagnostics["failed_items"] = diagnostics.get("failed_items", 0) + len(batch)
+            diagnostics.setdefault("failed_raw_ids", []).extend(i.id for i in batch)
         logger.warning("판별 배치 %d건 실패 — '낮음'으로 강등한다: %s", len(batch), e)
         return [_degraded(i) for i in batch]
 
     rows = _as_rows(raw)
     if rows is None:
+        if diagnostics is not None:
+            diagnostics["failed_batches"] = diagnostics.get("failed_batches", 0) + 1
+            diagnostics["failed_items"] = diagnostics.get("failed_items", 0) + len(batch)
+            diagnostics.setdefault("failed_raw_ids", []).extend(i.id for i in batch)
         logger.warning(
             "판별 응답이 배열이 아니다 (%s) — %d건을 '낮음'으로 강등한다",
             type(raw).__name__,
@@ -139,11 +156,17 @@ def _judge_batch(batch: list[RawItem]) -> list[Judgement]:
             if item_id not in by_id:
                 logger.warning("입력에 없는 id 를 응답이 만들었다 — 버린다: %r", item_id)
             continue
-        judged[item_id] = _to_judgement(row, by_id[item_id])
+        judged[item_id] = _to_judgement(row, by_id[item_id], target_profile=target_profile)
 
     # 방어 2 — 응답 누락 보정. 빠진 건을 조용히 버리지 않는다.
     missing = [i for i in batch if i.id not in judged]
     if missing:
+        if diagnostics is not None:
+            diagnostics["missing_items"] = diagnostics.get("missing_items", 0) + len(missing)
+            diagnostics.setdefault("failed_raw_ids", []).extend(i.id for i in missing)
+            diagnostics["failed_items"] = diagnostics.get("failed_items", 0) + len(missing)
+            if not judged:
+                diagnostics["failed_batches"] = diagnostics.get("failed_batches", 0) + 1
         logger.warning(
             "응답에 %d/%d건이 빠졌다 — '낮음'으로 채운다", len(missing), len(batch)
         )
@@ -180,19 +203,23 @@ def _degraded(item: RawItem) -> Judgement:
     안전 강등. 판정을 못 했다는 뜻이지 "불편이 아니다"라는 판단이 아니다.
 
     confidence="낮음" 이라 묶기로 넘어가지 않고, 다음 주에 다시 본다.
-    has_need_signal 은 규칙으로 세는 값이라 모델과 무관하게 채운다.
+    has_need_signal · has_payment_signal 은 규칙으로 세는 값이라 모델과 무관하게 채운다.
+    sufferer_role·sufferer_age_band·sufferer_gender·mentioned_service 는 LLM 라벨이라
+    판정 실패 시 전부 None — "드러나지 않음"과 같은 값이라 안전하다.
     """
+    text = f"{item.title} {item.snippet}"
     return Judgement(
         raw_item_id=item.id,
         is_pain=False,
         pain_summary=None,
         confidence=_SAFE_CONFIDENCE,
         severity=None,
-        has_need_signal=text_tool.has_need_signal(f"{item.title} {item.snippet}"),
+        has_need_signal=text_tool.has_need_signal(text),
+        has_payment_signal=text_tool.has_payment_signal(text),
     )
 
 
-def _to_judgement(row: dict, item: RawItem) -> Judgement:
+def _to_judgement(row: dict, item: RawItem, *, target_profile: Optional[TargetProfile] = None) -> Judgement:
     """응답 한 줄 → Judgement. 방어 3·4·5 가 여기 모여 있다."""
     is_pain = _as_bool(row.get("is_pain"), default=False)
     summary = _clean_summary(row.get("pain_summary"), item)
@@ -206,21 +233,66 @@ def _to_judgement(row: dict, item: RawItem) -> Judgement:
     confidence = _label(row.get("confidence")) or _SAFE_CONFIDENCE
     severity = _label(row.get("severity")) if is_pain else None
 
+    text = f"{item.title} {item.snippet}"
     need = row.get("has_need_signal")
     has_need = (
         _as_bool(need, default=False)
         if isinstance(need, bool)
         # 모델이 안 줬으면 규칙으로 보완한다 (docs/DATA_SPEC.md 4절 필요도 재료).
-        else text_tool.has_need_signal(f"{item.title} {item.snippet}")
+        else text_tool.has_need_signal(text)
     )
+    # ★ 지불 신호는 항상 규칙으로 센다. LLM에게 판정을 맡기지 않는다 —
+    #   "PAIN_SIGNALS 와 섞지 않는다"는 원칙과 같은 이유로, 지불 신호도
+    #   판별이 아니라 집계이므로 재현 가능한 규칙 쪽을 정본으로 둔다.
+    has_payment = text_tool.has_payment_signal(text)
+
+    sufferer_role = _clean_role(row.get("sufferer_role"))
+    sufferer_age_band = _clean_age_band(row.get("sufferer_age_band"), text)
+    # ★ 성별은 원문에 자기 서술 표현이 없으면 모델이 뭘 주든 버린다.
+    #   직업·말투로 성별을 추측하는 것은 편견이다 (2026-09-11 결정).
+    sufferer_gender = _clean_gender(row.get("sufferer_gender"), text)
+    mentioned_service = _clean_service(row.get("mentioned_service"), item)
+    payload = _payload(item)
+    source = f"{payload['title']} {payload['text']}"
+    experience_raw = row.get("experience_type")
+    experience_type = experience_raw if isinstance(experience_raw, str) and experience_raw in {"self", "other", "mixed", "unknown"} else "unknown"
+    experience = target_evidence_tool.grounded_quote(row.get("experience_evidence"), source, 300)
+    status_raw = row.get("pain_status")
+    status = status_raw if isinstance(status_raw, str) and status_raw in {"pain", "not_pain", "insufficient"} else ("pain" if is_pain else "not_pain" if confidence != "낮음" else "insufficient")
+    if target_evidence_tool.qa_mixed(source, item.url) or experience_type == "mixed":
+        experience_type, status = "mixed", "insufficient"
+        sufferer_role = sufferer_age_band = sufferer_gender = None
+    elif experience_type == "other":
+        status = "not_pain"
+        sufferer_role = sufferer_age_band = sufferer_gender = None
+    if target_profile is not None and status == "pain" and (experience_type != "self" or not experience):
+        status = "insufficient"
+    if status != "pain":
+        is_pain, summary, severity = False, None, None
+    elif not is_pain:
+        status = "insufficient"
+    if status == "insufficient":
+        confidence = "낮음"
+    target_fields = target_evidence_tool.verify_target(row, source, target_profile,
+        experience_type=experience_type, experience=experience) if target_profile is not None else {}
 
     return Judgement(
+        pain_status=status,
+        assessment_reason=str(row.get("assessment_reason") or "")[:300] or None,
+        experience_type=experience_type,
+        experience_evidence=experience,
+        **target_fields,
         raw_item_id=item.id,
         is_pain=is_pain,
         pain_summary=summary,
         confidence=confidence,
         severity=severity,
         has_need_signal=has_need,
+        has_payment_signal=has_payment,
+        sufferer_role=sufferer_role,
+        sufferer_age_band=sufferer_age_band,
+        sufferer_gender=sufferer_gender,
+        mentioned_service=mentioned_service,
     )
 
 
@@ -275,6 +347,53 @@ def _label(value: object) -> Optional[str]:
     return None
 
 
+def _clean_role(value: object) -> Optional[str]:
+    """SUFFERER_ROLES 고정 목록에 있는 값만 통과. 모델이 지어낸 라벨은 버린다."""
+    if isinstance(value, str) and value.strip() in SUFFERER_ROLES:
+        return value.strip()
+    return None
+
+
+def _clean_age_band(value: object, source_text: Optional[str] = None) -> Optional[str]:
+    """AGE_BANDS 고정 목록에 있는 값만 통과."""
+    if isinstance(value, str) and value.strip() in AGE_BANDS:
+        if source_text is not None and not target_evidence_tool.self_attribute(value.strip(), source_text, "age"):
+            return None
+        return value.strip()
+    return None
+
+
+def _clean_gender(value: object, source_text: str) -> Optional[str]:
+    """
+    ★★ 원문에 성별 자기 서술 표현이 하나도 없으면 모델이 뭘 주든 None.
+
+    직업·말투·문체로 성별을 추측하는 것은 편견이다 (2026-09-11 결정).
+    "간호사인데 매번 번거로워요" 에는 성별 자기 서술이 없으므로 절대 채워지지
+    않는다 — GENDERS 값과 일치하더라도 이 검문을 통과 못 하면 버린다.
+    """
+    if not isinstance(value, str) or value.strip() not in GENDERS:
+        return None
+    if not target_evidence_tool.self_attribute(value.strip(), source_text, "gender"):
+        return None
+    return value.strip()
+
+
+def _clean_service(value: object, item: RawItem) -> Optional[str]:
+    """
+    ★ 원문에 글자 그대로(verbatim) 등장하지 않으면 None.
+
+    브랜드명은 LLM이 가장 잘 지어내는 종류다. _clean_summary의 copy_ratio
+    검증과 반대 방향 — 여기서는 "원문에 있어야만" 통과시킨다.
+    """
+    if not isinstance(value, str):
+        return None
+    name = value.strip()
+    if not (1 < len(name) <= 30):
+        return None
+    source = f"{item.title} {item.snippet}"
+    return name if name in source else None
+
+
 def _as_bool(value: object, *, default: bool) -> bool:
     """모델이 "false" 같은 문자열을 보내는 경우까지 받아 준다."""
     if isinstance(value, bool):
@@ -292,24 +411,125 @@ def _as_bool(value: object, *, default: bool) -> bool:
 
 # ── ③ 문제정의 생성기가 쓰는 것 ────────────────
 
+_PROBLEM_TEXT_FIELDS = ("title", "one_liner", "description", "context", "complexity_note")
+_PROBLEM_TEXT_LIMITS = {"title": 100, "one_liner": 180, "description": 1600,
+                        "context": 1200, "complexity_note": 1200}
+_COMPLEXITY_GRADE_RE = re.compile(
+    r"(?:복잡도|난이도)\s*[:：은는]?\s*(?:높음|중간|낮음|상|중|하|쉬움|어려움)|"
+    r"\d+\s*점|[A-F]\s*등급"
+)
+
+
 def candidate_material(candidate: ProblemCandidate) -> str:
-    """묶음을 LLM에 넣을 재료 텍스트로."""
-    raise NotImplementedError
+    """정제된 원문을 근거로 넘긴다. 집계값이나 가상 사례를 넣지 않는다."""
+    ids = list(dict.fromkeys(candidate.raw_item_ids))
+    items = corpus_tool.load_raw_items_by_ids(ids, weeks=settings.EVIDENCE_LOOKBACK_WEEKS)
+    rows = [_payload(items[rid]) for rid in ids if rid in items]
+    if not rows:
+        raise ValueError("문제정의에 사용할 원문을 찾지 못했습니다")
+    return json.dumps({"category": candidate.category.value,
+                       "theme_hint": candidate.theme_hint, "items": rows}, ensure_ascii=False)
 
 
 def merge_material(problems: list[Problem]) -> str:
-    """기존 문제 2~3개를 합칠 재료 텍스트로 (F05)."""
-    raise NotImplementedError
+    """문제 조합은 현재 잠금 상태다."""
+    raise NotImplementedError("문제 조합은 아직 제공하지 않습니다")
 
 
-def write_problem(material: str) -> ProblemDraft:
-    """재료를 읽고 문제정의를 쓴다. ★ 숫자를 만들지 않는다."""
-    raise NotImplementedError
+def validate_problem_text(draft: ProblemDraft) -> None:
+    """규칙 위반은 지우거나 가짜 문장으로 보정하지 않고 보류시킨다."""
+    for field in _PROBLEM_TEXT_FIELDS:
+        value = getattr(draft, field)
+        if not value.strip() or len(value) > _PROBLEM_TEXT_LIMITS[field]:
+            raise ValueError(f"문제정의 {field}가 비어 있거나 길이 제한을 넘었습니다")
+        if _AGGREGATE_NUMBER_RE.search(value):
+            raise ValueError(f"문제정의 {field}에 집계성 수치가 포함되었습니다")
+    if _COMPLEXITY_GRADE_RE.search(draft.complexity_note):
+        raise ValueError("복잡도는 점수·등급 대신 서술해야 합니다")
 
 
-def review_problem(draft: ProblemDraft, similar: list[Problem]) -> ReviewResult:
-    """근거가 충분한가 / 기존과 겹치는가 → 게시·보류·병합."""
-    raise NotImplementedError
+class _ProblemResponseShapeError(ValueError):
+    """파싱은 됐지만 서술 응답의 구조가 계약과 다르다."""
+
+
+def _problem_draft_from_response(raw) -> ProblemDraft:
+    if not isinstance(raw, dict) or set(raw) != set(_PROBLEM_TEXT_FIELDS):
+        raise _ProblemResponseShapeError("문제정의 JSON의 필드가 계약과 다릅니다")
+    if any(not isinstance(raw[k], str) for k in _PROBLEM_TEXT_FIELDS):
+        raise _ProblemResponseShapeError("문제정의 JSON의 서술은 문자열이어야 합니다")
+    draft = ProblemDraft(**{k: raw[k].strip() for k in _PROBLEM_TEXT_FIELDS}, evidence=[])
+    validate_problem_text(draft)
+    return draft
+
+
+def write_problem(material: str, *, diagnostics: Optional[dict] = None) -> ProblemDraft:
+    """형식 오류만 한 번 재생성한다. 근거·수치·의미 검증을 완화하지 않는다."""
+    if diagnostics is not None:
+        diagnostics["generation_attempts"] = 0
+    for attempt in range(2):
+        prompt = (write_problem_prompt(material) if attempt == 0
+                  else repair_problem_format_prompt(material))
+        if diagnostics is not None:
+            diagnostics["generation_attempts"] += 1
+        # JSON 파싱 실패는 core가 이미 재시도한다. LLMError/예산 종료는 여기서 잡지 않는다.
+        raw = get_llm().complete_json(prompt, max_tokens=2200, temperature=0.0)
+        try:
+            return _problem_draft_from_response(raw)
+        except _ProblemResponseShapeError as exc:
+            if attempt == 1:
+                raise ValueError(f"문제정의 형식 재생성 후에도 계약 불일치: {exc}") from exc
+    raise AssertionError("unreachable")
+
+
+
+def _unsupported_problem_claim(draft: ProblemDraft, material: str) -> Optional[str]:
+    """과대 해석이 확인된 사실 유형은 원문 표현 없이는 검수 단계에서 막는다.
+
+    전체 의미 검증을 대신하지 않는다. 재담당→복귀, 비유→음성 입력,
+    귀찮음→피로 같은 이미 관측한 실패를 모델 재량에만 맡기지 않는 방어다.
+    """
+    try:
+        payload = json.loads(material)
+        source = " ".join(f"{row.get('title', '')} {row.get('text', '')}"
+                          for row in payload["items"])
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return "원문 대조 자료 형식이 올바르지 않습니다"
+    narrative = " ".join(getattr(draft, field) for field in _PROBLEM_TEXT_FIELDS)
+    # 수집 스니펫에 없는 민감한 원인·감정·매체 전제를 도입하지 않는다.
+    for term, supported_forms in {
+        "복귀": ("복귀",), "휴직": ("휴직",), "이직": ("이직",),
+        "퇴사": ("퇴사",), "음성": ("음성", "목소리", "오디오"),
+        "녹음": ("녹음",), "피로": ("피로", "피곤"),
+        "스트레스": ("스트레스",),
+    }.items():
+        if term in narrative and not any(form in source for form in supported_forms):
+            return f"원문에 확인되지 않은 표현을 추가했습니다: {term}"
+    return None
+
+def review_problem(draft: ProblemDraft, similar: list[Problem], *, material: str = "") -> ReviewResult:
+    """숫자·중복 방어 후 모델이 원문과 대조한다. 근거 없으면 게시하지 않는다."""
+    validate_problem_text(draft)
+    title_key = _WS_RE.sub("", draft.title).casefold()
+    for problem in similar:
+        if _WS_RE.sub("", problem.title).casefold() == title_key:
+            return ReviewResult(decision="merge", reason="동일한 제목의 기존 문제가 있어 검토가 필요합니다",
+                                merge_into_problem_id=problem.id)
+    if not material:
+        return ReviewResult(decision="hold", reason="원문 대조 자료가 없습니다")
+    unsupported = _unsupported_problem_claim(draft, material)
+    if unsupported:
+        return ReviewResult(decision="hold", reason=unsupported)
+    raw = get_llm().complete_json(
+        review_problem_prompt(material, json.dumps(
+            {k: getattr(draft, k) for k in _PROBLEM_TEXT_FIELDS}, ensure_ascii=False)),
+        max_tokens=700, temperature=0.0,
+    )
+    if (not isinstance(raw, dict) or set(raw) != {"decision", "reason"}
+            or raw.get("decision") not in {"publish", "hold"}
+            or not isinstance(raw.get("reason"), str) or not raw["reason"].strip()
+            or _AGGREGATE_NUMBER_RE.search(raw["reason"])):
+        raise ValueError("근거 검수 JSON이 올바르지 않습니다")
+    return ReviewResult(decision=raw["decision"], reason=raw["reason"].strip())
 
 
 # ── ④ 아이디어 생성기가 쓰는 것 ────────────────

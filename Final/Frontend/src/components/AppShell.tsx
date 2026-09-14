@@ -1,11 +1,110 @@
 'use client';
+
 /**
- * 전체 화면을 감싸는 껍데기 — 헤더 + 본문 + 푸터.
+ * 전체 화면을 감싸는 껍데기. 헤더 + 본문 + 푸터.
+ * Next.js와 공유용 단일 HTML이 같이 쓴다.
  *
- * 헤더에 들어갈 것
- *   · 로고 (public/eureka.png)
- *   · 문제 탐색 링크
- *   · 보관함 (저장 개수 표시)
- *   · 로그인 / 사용자 이름
+ * ★ 아이디어 기능은 잠금 상태다 — 헤더 네비게이션에는 원래도
+ *   아이디어 관련 링크가 없었으므로 여기서 제거할 것은 없다.
  */
-export {};  // TODO: 프론트 담당자가 구현
+
+import { Bookmark, User as UserIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { LOGO_SRC } from '@/lib/assets';
+import { NavLink, useNav } from '@/lib/nav';
+import { useStore } from '@/lib/store';
+import { DATA_MODE } from '@/api/client';
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen flex flex-col bg-bg">
+      <Header />
+      <main className="flex-1">{children}</main>
+      <Footer />
+    </div>
+  );
+}
+
+function Header() {
+  const { user, saved } = useStore();
+  const { path } = useNav();
+
+  return (
+    <header className="sticky top-0 z-10 bg-bg/95 backdrop-blur border-b border-border">
+      <div className="shell h-16 flex items-center justify-between gap-4">
+        <NavLink to="/" className="flex items-center" ariaLabel="유레카 홈">
+          <img src={LOGO_SRC} alt="유레카" className="h-8 w-auto" />
+        </NavLink>
+
+        <nav className="flex items-center gap-1">
+          <HeaderLink to="/problems" active={path.startsWith('/problems')}>
+            문제 탐색
+          </HeaderLink>
+
+          <NavLink
+            to="/mypage"
+            className="inline-flex items-center gap-1.5 h-10 px-3 rounded-[10px] text-[15px] text-text-secondary hover:bg-bg-subtle"
+          >
+            <Bookmark size={17} aria-hidden />
+            <span className="hidden sm:inline">보관함</span>
+            {saved.length > 0 ? (
+              <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-blue text-white text-[12px] font-semibold">
+                {saved.length}
+              </span>
+            ) : null}
+          </NavLink>
+
+          {user ? (
+            <NavLink
+              to="/mypage"
+              className="inline-flex items-center gap-1.5 h-10 px-3 rounded-[10px] text-[15px] font-medium text-control-text hover:bg-bg-subtle"
+            >
+              <UserIcon size={17} aria-hidden />
+              <span className="hidden sm:inline">{user.nickname}</span>
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/login"
+              className="inline-flex items-center h-10 px-4 rounded-[10px] text-[15px] font-semibold text-blue hover:bg-blue-light"
+            >
+              로그인
+            </NavLink>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function HeaderLink({ to, active, children }: { to: string; active: boolean; children: ReactNode }) {
+  return (
+    <NavLink
+      to={to}
+      className={`inline-flex items-center h-10 px-3 rounded-[10px] text-[15px] font-medium ${
+        active ? 'text-blue bg-blue-light' : 'text-text-secondary hover:bg-bg-subtle'
+      }`}
+    >
+      {children}
+    </NavLink>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-border mt-24">
+      <div className="shell py-10 flex flex-col gap-2">
+        <p className="text-[15px] font-semibold">유레카 — 문제를 발견하고, 아이디어로 바꾸다</p>
+        <p className="text-[13px] text-text-muted kr">
+          {DATA_MODE === 'demo'
+            ? '디자인 데모. 표시되는 문제와 근거는 예시 데이터입니다.'
+            : '실제 수집 근거를 바탕으로 작성한 문제입니다. AI 서술과 판정은 원문 근거와 함께 확인하세요.'}
+        </p>
+      </div>
+    </footer>
+  );
+}
+
+/** 본문 여백 규칙. DESIGN.md 11절 섹션 간 64~96px. */
+export function Page({ children }: { children: ReactNode }) {
+  return <div className="shell py-14 flex flex-col gap-12">{children}</div>;
+}

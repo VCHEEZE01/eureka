@@ -23,6 +23,7 @@ from app.config.dictionaries import (
     AD_PATTERNS,
     PAIN_SIGNALS,
     need_signal_expressions,
+    payment_signal_expressions,
 )
 from app.schemas.models import LicensePolicy, RawItem, SourceKind
 
@@ -167,6 +168,36 @@ def has_need_signal(text: str) -> bool:
     if not text:
         return False
     return any(e in text for e in need_signal_expressions())
+
+
+def payment_signal_hits(text: str) -> list[str]:
+    """지불 신호로 등장한 표현들. ★ 판별(rule_judge)에 쓰지 않는다 — 집계 전용."""
+    if not text:
+        return []
+    return [e for e in payment_signal_expressions() if e in text]
+
+
+def has_payment_signal(text: str) -> bool:
+    """
+    지불 신호 등장 여부 = 화면 '① 돈이 걸린 문제인가' 의 재료.
+
+    ★ has_need_signal 과 똑같은 모양이다. 표현이 몇 개 걸렸는지가 아니라
+      걸렸는지만 본다 — "돈 아깝"과 "돈이 아깝"이 겹쳐 매치되므로
+      표현 수를 세면 같은 글이 2건처럼 보인다.
+    ★ rule_judge / signal_score / signal_hits 는 이 함수를 부르지 않는다.
+      부르면 기존 판별 튜닝이 깨진다 (dictionaries.py PAYMENT_SIGNALS 주석 참고).
+    """
+    return bool(payment_signal_hits(text))
+
+
+def item_text(item: RawItem) -> str:
+    """
+    _item_text 의 공개 별칭.
+
+    aggregate_tool 이 signal_type_counts 를 RawItem 에서 재계산해야 하는데,
+    판별 때와 정확히 같은 정제 텍스트를 봐야 건수가 어긋나지 않는다.
+    """
+    return _item_text(item)
 
 
 def is_ad(text: str) -> bool:

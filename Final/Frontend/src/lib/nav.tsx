@@ -1,17 +1,108 @@
 'use client';
+
 /**
  * 라우팅 추상화.
  *
- * 화면(screens/)이 next/navigation 을 직접 부르지 않게 한다.
- * 화면은 useNav() 와 <NavLink> 만 쓴다.
+ * 화면(screens/)을 Next.js와 공유용 단일 HTML이 함께 쓰기 위한 장치다.
+ * 화면은 next/navigation을 직접 부르지 않고 여기의 useNav()만 쓴다.
  *
- * 왜 필요한가
- *   · Next.js  → 실제 경로  (/problems/p1)
- *   · 공유용 단일 HTML → 해시 경로 (#/problems/p1)
- *   같은 화면 코드를 양쪽에서 쓰려면 이 층이 있어야 한다.
+ * - Next.js  → 실제 경로 (/problems/p1)
+ * - 단일 HTML → 해시 경로 (#/problems/p1)
  *
- * 만들 것
- *   useNav()   { path, go(), back(), hrefFor() }
- *   NavLink    화면 이동 링크
+ * 덕분에 화면 코드를 두 벌 관리하지 않아도 된다.
  */
-export {};  // TODO: 프론트 담당자가 구현
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+
+export interface NavApi {
+  /** 현재 경로. 항상 '/'로 시작한다. */
+  path: string;
+  go: (path: string) => void;
+  back: () => void;
+  /** <a href>에 넣을 실제 값 (단일 HTML에서는 '#'가 붙는다) */
+  hrefFor: (path: string) => string;
+}
+
+const NavContext = createContext<NavApi | null>(null);
+
+export function NavProvider({ value, children }: { value: NavApi; children: ReactNode }) {
+  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
+}
+
+export function useNav(): NavApi {
+  const api = useContext(NavContext);
+  if (!api) throw new Error('useNav는 NavProvider 안에서만 쓸 수 있습니다.');
+  return api;
+}
+
+/**
+ * 해시 기반 구현. 공유용 단일 HTML 전용.
+ * 파일을 더블클릭해 file://로 열어도 화면 이동이 동작한다.
+ */
+export function useHashNav(): NavApi {
+  const read = () => {
+    const raw = typeof window === 'undefined' ? '' : window.location.hash.replace(/^#/, '');
+    return raw.startsWith('/') ? raw : '/';
+  };
+  const [path, setPath] = useState(read);
+
+  useEffect(() => {
+    const sync = () => setPath(read());
+    window.addEventListener('hashchange', sync);
+    sync();
+    return () => window.removeEventListener('hashchange', sync);
+  }, []);
+
+  return useMemo(
+    () => ({
+      path,
+      go: (next: string) => {
+        window.location.hash = next;
+        window.scrollTo(0, 0);
+      },
+      back: () => window.history.back(),
+      hrefFor: (next: string) => `#${next}`,
+    }),
+    [path],
+  );
+}
+
+/**
+ * 화면 이동 링크. 화면에서는 next/link 대신 이걸 쓴다.
+ * 마우스 오른쪽 클릭·새 탭 열기가 되도록 실제 href를 유지한다.
+ */
+export function NavLink({
+  to,
+  children,
+  className,
+  ariaLabel,
+}: {
+  to: string;
+  children: ReactNode;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  const { go, hrefFor } = useNav();
+  const onClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      go(to);
+    },
+    [go, to],
+  );
+
+  return (
+    <a href={hrefFor(to)} onClick={onClick} className={className} aria-label={ariaLabel}>
+      {children}
+    </a>
+  );
+}

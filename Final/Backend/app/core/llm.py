@@ -1,6 +1,10 @@
 """
 LLM 클라이언트 — 모델을 실제로 호출하는 유일한 곳.
 
+Gemini는 Google 기본 generateContent API를 사용한다. 게이트웨이 설정과 키를 섞지 않는다.
+  https://ai.google.dev/api/generate-content
+  LLM_PROVIDER=gemini · GEMINI_API_KEY · GEMINI_MODEL
+
 ★ 왜 이렇게 복잡한가
   우리 LLM 제공자는 "포텐스닷" 게이트웨이인데, 요청/응답 형식을 아직 아무도
   확정하지 못했다. 그래서 형식을 코드에 박지 않고 .env 로 고른다.
@@ -31,6 +35,7 @@ import json
 import re
 import time
 from typing import Any, Optional, Protocol, runtime_checkable
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel
@@ -421,6 +426,84 @@ class HTTPLLMClient(_BaseLLM):
             return client.post(self.base_url, json=body, headers=self.headers())
 
 
+class GeminiLLMClient(HTTPLLMClient):
+    """Google의 고정 주소로만 전송. 포텐스닷 키·URL·응답 경로는 사용하지 않는다."""
+
+    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+    def __init__(self) -> None:
+        key = _clean(settings.GEMINI_API_KEY)
+        model = _clean(settings.GEMINI_MODEL)
+        if not key or not model:
+            raise LLMError("GEMINI_API_KEY / GEMINI_MODEL 설정을 확인하라.")
+        super().__init__(
+            base_url=f"{self.BASE_URL}/{quote(model, safe='')}:generateContent",
+            api_key=key,
+            model=model,
+            request_style="openai_chat",
+            response_path="",
+            auth_header="x-goog-api-key",
+            auth_scheme="",
+        )
+
+    def complete(
+        self, prompt: str, *, system: Optional[str] = None,
+        model: Optional[str] = None, max_tokens: int = 2000,
+        temperature: float = 0.0, json_mode: bool = False,
+    ) -> LLMResponse:
+        selected = _clean(model or self.model)
+        config: dict = {"maxOutputTokens": max_tokens, "temperature": temperature}
+        # 2.5 Flash/Lite에서는 단순 판별의 추가 추론 비용을 끈다.
+        if selected.startswith("gemini-2.5-flash"):
+            config["thinkingConfig"] = {"thinkingBudget": 0}
+        if json_mode:
+            config["responseMimeType"] = "application/json"
+        body: dict = {
+            "_model": selected,  # _send에서 경로로 옮긴다. 요청 본문에는 포함하지 않는다.
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": config,
+        }
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": system}]}
+        data = self._post_with_retry(body)
+        try:
+            candidate = data["candidates"][0]
+            if candidate.get("finishReason") not in (None, "STOP"):
+                raise LLMError("Gemini 응답이 정상 완료되지 않았다 (차단 또는 출력 한도 확인).")
+            parts = candidate["content"]["parts"]
+            text = "".join(
+                part["text"] for part in parts
+                if isinstance(part, dict) and isinstance(part.get("text"), str)
+                and not part.get("thought", False)
+            )
+            if not text:
+                raise LLMError("Gemini 텍스트 응답이 비어 있다.")
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise LLMError("Gemini 텍스트 응답이 없다. 안전 필터 또는 응답 형식을 확인하라.") from exc
+        usage = data.get("usageMetadata")
+        normalized = None
+        if isinstance(usage, dict):
+            normalized = {
+                "prompt_tokens": usage.get("promptTokenCount", 0),
+                "completion_tokens": usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0),
+                "total_tokens": usage.get("totalTokenCount", 0),
+            }
+        return LLMResponse(text=text, usage=normalized, raw=data)
+
+    def complete_json(self, prompt: str, **kw: Any) -> Any:
+        kw["json_mode"] = True
+        return super().complete_json(prompt, **kw)
+
+    def _send(self, body: dict) -> httpx.Response:
+        payload = dict(body)
+        model = payload.pop("_model")
+        url = f"{self.BASE_URL}/{quote(model, safe='')}:generateContent"
+        if self._client is not None:
+            return self._client.post(url, json=payload, headers=self.headers(), timeout=self.timeout_sec)
+        with httpx.Client(timeout=self.timeout_sec) as client:
+            return client.post(url, json=payload, headers=self.headers())
+
+
 # ── 오프라인용 ──────────────────────────────────
 
 
@@ -503,6 +586,8 @@ def get_llm() -> LLMClient:
     if _client is None:
         if settings.LLM_DRY_RUN or settings.LLM_PROVIDER == "echo":
             _client = EchoLLM()
+        elif settings.LLM_PROVIDER == "gemini":
+            _client = GeminiLLMClient()
         else:
             _client = HTTPLLMClient()
     return _client
@@ -525,14 +610,12 @@ def reset_llm() -> None:
 
 def _ping(prompt: str) -> int:
     """왕복 1회. 설정이 맞는지 눈으로 확인하는 용도."""
-    key = _clean(settings.LLM_API_KEY)
-    masked = (key[:4] + "…") if key else "(없음)"
+    gemini = settings.LLM_PROVIDER == "gemini"
+    key = _clean(settings.GEMINI_API_KEY if gemini else settings.LLM_API_KEY)
     print(
         f"provider={settings.LLM_PROVIDER} dry_run={settings.LLM_DRY_RUN} "
-        f"style={settings.LLM_REQUEST_STYLE} "
-        f"model={_clean(settings.LLM_MODEL) or '(없음)'}\n"
-        f"url={_clean(settings.LLM_BASE_URL) or '(없음)'} key={masked} "
-        f"response_path={_clean(settings.LLM_RESPONSE_PATH) or '(기본)'}"
+        f"model={settings.judge_model or '(없음)'} "
+        f"key_configured={bool(key)}"
     )
     reset_llm()
     try:

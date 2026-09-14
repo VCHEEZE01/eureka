@@ -16,7 +16,7 @@
 
 ★ 왜 규칙을 먼저 돌리나
   전량을 LLM 에 넣으면 비용이 수집량에 비례해 터진다. 광고·30자 미만·
-  불편 신호 없음은 규칙으로 확실히 걸러지므로 모델을 부를 이유가 없다.
+  불편 신호가 없는 글도 의미 판별 대상에 포함한다. 키워드는 랭킹에만 사용한다.
 
 ★ 출처 편중 상한을 여기서 거는 이유 (docs 9절)
   Judgement 에는 출처 정보가 없다. RawItem 을 손에 쥔 건 이 에이전트뿐이라
@@ -38,9 +38,11 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from app.agents.base import Agent
+from app.schemas.collections import TargetProfile
+from app.tools.target_query_tool import target_label_conflicts
 from app.config.settings import settings
 from app.schemas.models import Category, Judgement, ProblemCandidate, RawItem
-from app.tools import cluster_tool, corpus_tool, llm_tool, text_tool
+from app.tools import cluster_tool, corpus_tool, llm_tool, text_tool, target_evidence_tool
 from app.tools.text_tool import Verdict
 
 logger = logging.getLogger(__name__)
@@ -72,6 +74,9 @@ class InterpretInput(BaseModel):
     use_llm: bool = Field(
         default=True, description="False 면 규칙 판별만으로 Judgement 를 만든다"
     )
+    track_llm_failures: bool = False
+    target_profile: Optional[TargetProfile] = None
+    require_target_confirmation: bool = False
     include_pending: bool = Field(
         default=True, description="지난 주차 판정을 함께 묶는다 (자동 승격 경로)"
     )
@@ -91,7 +96,9 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
     def run(self, data: InterpretInput) -> list[ProblemCandidate]:
         # ── 1단계: 불편 판별 ──────────────────
         self.report(0)
-        passed, held, drop_reasons = self._rule_filter(data.items)
+        if data.require_target_confirmation and data.target_profile is None:
+            raise ValueError("타겟 확인에는 target_profile이 필요합니다")
+        passed, held, drop_reasons = self._rule_filter(data.items, allow_semantic=data.use_llm)
         if held:
             corpus_tool.save_held(held, data.category)
 
@@ -100,25 +107,45 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
             # 버리지 않는다. 다음 주에 먼저 처리한다 (docs 3-6).
             corpus_tool.save_overflow(overflow, data.category)
 
+        self.llm_diagnostics: dict = {}
         if data.use_llm:
-            judgements = llm_tool.judge_pains(target)
+            judge_options = {}
+            if data.track_llm_failures or data.require_target_confirmation:
+                judge_options["diagnostics"] = self.llm_diagnostics
+            if data.require_target_confirmation:
+                judge_options["target_profile"] = data.target_profile
+            judgements = llm_tool.judge_pains(target, **judge_options)
             llm_calls = llm_tool.judge_call_count(len(target))
         else:
             judgements = [self._rule_judgement(i) for i in target]
             llm_calls = 0
 
+        target_ids = {item.id for item in target}
+        successful = {j.raw_item_id for j in judgements} - set(self.llm_diagnostics.get("failed_raw_ids", []))
+        if data.require_target_confirmation:
+            successful &= {j.raw_item_id for j in judgements if j.target_policy == target_evidence_tool.POLICY
+                           and j.target_profile_key == target_evidence_tool.profile_key(data.target_profile)}
+        self.failed_raw_ids = target_ids - successful
+        # Rule DROP/HOLD are terminal decisions; ranked overflow has not been processed.
+        rule_processed = {item.id for item in data.items} - {item.id for item in passed}
+        self.processed_raw_ids = rule_processed | successful
         if judgements:
             corpus_tool.save_judgements(judgements, data.category)
         self.report(0, done=True)
 
         # ── 2단계: 묶기 ───────────────────────
         self.report(1)
-        pool = [j for j in judgements if self._is_strong(j)]
+        self.target_confirmed_ids = {j.raw_item_id for j in judgements if j.target_status == "confirmed"}
+        self.target_unconfirmed_ids = {j.raw_item_id for j in judgements if j.target_status == "unconfirmed"}
+        self.target_conflicting_ids = {j.raw_item_id for j in judgements
+            if j.target_status == "conflict" or (not data.require_target_confirmation and data.target_profile and target_label_conflicts(data.target_profile, j))}
+        pool = [j for j in judgements if self._is_strong(j) and j.raw_item_id not in self.target_conflicting_ids
+                and (not data.require_target_confirmation or self._confirmed_for(j, data.target_profile))]
         raw_map: dict[str, RawItem] = {i.id: i for i in data.items}
         pending_added = 0
 
         if data.include_pending:
-            raw_map, pending_added = self._merge_pending(pool, raw_map, data.category)
+            raw_map, pending_added = self._merge_pending(pool, raw_map, data.category, target_profile=data.target_profile if data.require_target_confirmation else None)
 
         groups = cluster_tool.group(pool) if pool else []
         self.report(1, done=True)
@@ -147,6 +174,11 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
 
         # 큰 묶음부터. 같은 크기면 id 로 고정해 순서가 흔들리지 않게 한다.
         candidates.sort(key=lambda c: (-len(c.raw_item_ids), c.id))
+
+        # ★ 여기 없으면 반환값이 파이프라인 밖에서 즉시 사라진다. 근거 조립기가
+        #   다음 단계에서 다시 읽을 수 있게 디스크에 남긴다.
+        if candidates:
+            corpus_tool.save_candidates(candidates, data.category)
 
         self._write_manifest(
             data.category,
@@ -188,7 +220,7 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
 
     @staticmethod
     def _rule_filter(
-        items: list[RawItem],
+        items: list[RawItem], *, allow_semantic: bool = False,
     ) -> tuple[list[RawItem], list[RawItem], list[str]]:
         """
         (통과, 보류, 탈락사유) 로 가른다.
@@ -214,7 +246,7 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
             )
             seen_hashes.add(item_hash)
 
-            if verdict is Verdict.PASS:
+            if verdict is Verdict.PASS or (allow_semantic and verdict is Verdict.DROP and reason == "불편 신호 없음"):
                 passed.append(item)
             elif verdict is Verdict.HOLD:
                 held.append(item)
@@ -262,6 +294,9 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
             confidence=_RULE_ONLY_CONFIDENCE,
             severity=None,
             has_need_signal=text_tool.has_need_signal(text),
+            # ★ 규칙만으로 채워진다. --no-llm 에서도 ① "돈이 걸린 문제인가"가
+            #   비어 있지 않도록 has_need_signal 과 같은 자리에서 채운다.
+            has_payment_signal=text_tool.has_payment_signal(text),
         )
 
     # ══════════════════════════════════════════
@@ -273,11 +308,16 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
         """묶기로 넘길 판정인가. 확신 없는 건 다음 주에 다시 본다."""
         return j.is_pain and j.confidence != WEAK_CONFIDENCE
 
+    @staticmethod
+    def _confirmed_for(j: Judgement, target: TargetProfile) -> bool:
+        return (j.target_status == "confirmed" and j.target_policy == target_evidence_tool.POLICY
+                and j.target_profile_key == target_evidence_tool.profile_key(target))
+
     def _merge_pending(
         self,
         pool: list[Judgement],
         raw_map: dict[str, RawItem],
-        category: Category,
+        category: Category, *, target_profile: Optional[TargetProfile] = None,
     ) -> tuple[dict[str, RawItem], int]:
         """
         지난 주차 판정을 pool 에 더한다. pool 은 제자리에서 늘어난다.
@@ -291,10 +331,18 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
         known = self._recent_raw_map(category)
         known.update(raw_map)  # 이번 주에 받은 원문이 우선
 
-        seen = {j.raw_item_id for j in pool}
+        seen = {j.raw_item_id for j in pool} | set(raw_map)
+        # JSONL appends new judgements. Read old weeks first and let the latest
+        # record win, including false/insufficient judgements that revoke old pain.
+        latest: dict[str, Judgement] = {}
+        for week in reversed(corpus_tool.recent_weeks(PENDING_WEEKS)):
+            for judgement in corpus_tool.load_judgements(week=week, category=category):
+                latest[judgement.raw_item_id] = judgement
         added = 0
-        for j in corpus_tool.load_pending_judgements(weeks=PENDING_WEEKS):
+        for j in latest.values():
             if j.raw_item_id in seen or not self._is_strong(j):
+                continue
+            if target_profile is not None and not self._confirmed_for(j, target_profile):
                 continue
             if j.raw_item_id not in known:
                 continue
@@ -310,7 +358,7 @@ class InterpreterAgent(Agent[InterpretInput, list[ProblemCandidate]]):
     def _recent_raw_map(category: Category) -> dict[str, RawItem]:
         """최근 주차의 이 카테고리 원문. 출처 편중 판정과 카테고리 확인에 쓴다."""
         out: dict[str, RawItem] = {}
-        for week in corpus_tool.recent_weeks(PENDING_WEEKS):
+        for week in reversed(corpus_tool.recent_weeks(PENDING_WEEKS)):
             for item in corpus_tool.load_raw_items(week=week, category=category):
                 out[item.id] = item
         return out

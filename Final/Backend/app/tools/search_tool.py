@@ -13,15 +13,15 @@
 ────────────────────────────────────────────────
 엔드포인트 근거 (전부 공식 문서 확인 완료)
 ────────────────────────────────────────────────
-· 네이버 검색 오픈API  https://developers.naver.com/docs/serviceapi/search/blog/blog.md
-  - GET https://openapi.naver.com/v1/search/{blog|news|kin|cafearticle}.json
-  - 헤더 X-Naver-Client-Id / X-Naver-Client-Secret
+· NAVER API HUB  https://guide.ncloud-docs.com/docs/apihub-migration
+  - GET https://naverapihub.apigw.ntruss.com/search/v1/{blog|news|kin|cafearticle}
+  - 헤더 X-NCP-APIGW-API-KEY-ID / X-NCP-APIGW-API-KEY
   - query(필수) · display(기본 10, 최대 100) · start(기본 1, 최대 1000)
-    · sort(sim=정확도 기본 / date=날짜순)
+    · sort(sim=정확도 기본 / date=날짜순) · format=json
   - 응답 items[]: title · link · description (+ blog: bloggername·postdate,
     news: originallink·pubDate, cafearticle: cafename·cafeurl, kin: 날짜 없음)
-  - 하루 호출 한도 25,000회. 429 = 하루 허용량 초과 또는 초당 호출량 초과
-    (https://developers.naver.com/docs/common/openapiguide/errorcode.md)
+  - 서비스 한도는 콘솔에서 확인. NAVER_DAILY_CAP 은 별도의 로컬 일일 안전 상한.
+    (https://guide.ncloud-docs.com/docs/apihub-overview)
 
 · 카카오 다음 검색 REST API  https://developers.kakao.com/docs/ko/daum-search/dev-guide
   - GET https://dapi.kakao.com/v2/search/{web|blog}
@@ -34,6 +34,7 @@
 from __future__ import annotations
 
 import json
+import fcntl
 import logging
 import time
 from dataclasses import dataclass
@@ -70,7 +71,7 @@ class QuotaExceeded(SearchError):
 # 상수 — 공식 문서에서 확인한 값만 둔다
 # ══════════════════════════════════════════════
 
-NAVER_BASE_URL = "https://openapi.naver.com/v1/search"
+NAVER_BASE_URL = "https://naverapihub.apigw.ntruss.com/search/v1"
 NAVER_MAX_DISPLAY = 100  # 확인: display 최대 100
 NAVER_MAX_START = 1000  # 확인: start 최대 1000
 NAVER_SORT_DATE = "date"  # 확인: 날짜순 내림차순
@@ -105,15 +106,15 @@ USER_AGENT = "EurekaBot/0.1"
 @dataclass(frozen=True)
 class _Endpoint:
     provider: str
-    path: str  # 네이버는 "blog.json", 카카오는 "blog"
+    path: str  # 네이버 API Hub와 카카오 모두 확장자 없는 경로
     source_name: str  # RawItem.source_name 에 그대로 들어간다
     date_field: str = ""  # 빈 문자열이면 그 API 는 날짜를 주지 않는다
 
 
-_NAVER_BLOG = _Endpoint(PROVIDER_NAVER, "blog.json", "네이버 블로그", "postdate")
-_NAVER_NEWS = _Endpoint(PROVIDER_NAVER, "news.json", "네이버 뉴스", "pubDate")
-_NAVER_KIN = _Endpoint(PROVIDER_NAVER, "kin.json", "네이버 지식iN")
-_NAVER_CAFE = _Endpoint(PROVIDER_NAVER, "cafearticle.json", "네이버 카페")
+_NAVER_BLOG = _Endpoint(PROVIDER_NAVER, "blog", "네이버 블로그", "postdate")
+_NAVER_NEWS = _Endpoint(PROVIDER_NAVER, "news", "네이버 뉴스", "pubDate")
+_NAVER_KIN = _Endpoint(PROVIDER_NAVER, "kin", "네이버 지식iN")
+_NAVER_CAFE = _Endpoint(PROVIDER_NAVER, "cafearticle", "네이버 카페")
 _KAKAO_BLOG = _Endpoint(PROVIDER_KAKAO, "blog", "다음 블로그", "datetime")
 _KAKAO_WEB = _Endpoint(PROVIDER_KAKAO, "web", "다음 웹문서", "datetime")
 
@@ -201,7 +202,7 @@ def is_blocked(provider: str) -> bool:
 def quota_path(day: Optional[date] = None) -> Path:
     """오늘의 카운터 파일. ★ settings 를 호출 시점에 읽는다(테스트가 갈아끼운다)."""
     day = day or date.today()
-    return Path(settings.CORPUS_DIR) / f"quota-{day.isoformat()}.json"
+    return Path(settings.SEARCH_QUOTA_DIR or settings.CORPUS_DIR) / f"quota-{day.isoformat()}.json"
 
 
 def _daily_cap(provider: str) -> int:
@@ -240,16 +241,25 @@ def _consume_quota(provider: str) -> None:
     ★ 재시도도 실제로 API를 때리므로 시도마다 센다.
       먼저 적고 나중에 부르는 순서인 이유: 프로세스가 죽어도 과소 집계가 안 난다.
     """
-    cap = _daily_cap(provider)
-    counts = read_quota()
-    used = counts.get(provider, 0)
-    if cap and used >= cap:
-        raise QuotaExceeded(
-            f"{provider} 일일 호출 한도 {cap}회를 다 썼다 (사용 {used}회). "
-            f"오늘은 여기까지다."
-        )
-    counts[provider] = used + 1
-    _write_quota(counts)
+    path = quota_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.with_suffix(".lock").open("a") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        if settings.SEARCH_QUOTA_DIR and path.exists():
+            try:
+                existing = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(existing, dict) or any(type(v) is not int or v < 0 for v in existing.values()):
+                    raise ValueError("invalid counters")
+            except (OSError, ValueError) as exc:
+                raise SearchError("공유 검색 쿼터 기록을 확인할 수 없습니다") from exc
+        cap = _daily_cap(provider)
+        counts = read_quota()
+        used = counts.get(provider, 0)
+        if cap and used >= cap:
+            raise QuotaExceeded(f"{provider} 일일 호출 한도 {cap}회를 다 썼다 (사용 {used}회). 오늘은 여기까지다.")
+        counts[provider] = used + 1
+        _write_quota(counts)
+
 
 
 # ══════════════════════════════════════════════
@@ -325,7 +335,7 @@ def _auth_headers(provider: str) -> dict[str, str]:
                 "네이버 검색 API 키가 없다. .env 의 NAVER_CLIENT_ID / "
                 "NAVER_CLIENT_SECRET 을 채워라."
             )
-        return {"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": secret}
+        return {"X-NCP-APIGW-API-KEY-ID": cid, "X-NCP-APIGW-API-KEY": secret}
     if provider == PROVIDER_KAKAO:
         key = settings.KAKAO_REST_API_KEY
         if not key:
@@ -435,7 +445,7 @@ def _to_item(
 
 
 def _fetch_endpoint(
-    keyword: str, source_kind: SourceKind, endpoint: _Endpoint, want: int
+    keyword: str, source_kind: SourceKind, endpoint: _Endpoint, want: int, *, strict: bool = False
 ) -> list[RawItem]:
     """엔드포인트 하나에서 최대 want 건. 정렬은 최신순으로 고정한다."""
     max_pages = max(int(settings.COLLECT_MAX_PAGES), 1)
@@ -462,6 +472,7 @@ def _fetch_endpoint(
                 "display": page_size,
                 "start": start,
                 "sort": NAVER_SORT_DATE,
+                "format": "json",
             }
         else:
             page_no = page + 1
@@ -476,7 +487,11 @@ def _fetch_endpoint(
             }
 
         payload = _get_json(endpoint.provider, url, params)
+        if not isinstance(payload, dict):
+            raise SearchError("검색 응답이 JSON 객체가 아닙니다")
         rows = payload.get("items" if is_naver else "documents")
+        if strict and not isinstance(rows, list):
+            raise SearchError("검색 응답의 결과 목록 형식이 올바르지 않습니다")
         if not isinstance(rows, list) or not rows:
             break
 
@@ -572,3 +587,35 @@ def search(keyword: str, source_kind: SourceKind, limit: int = 50) -> list[RawIt
                 break
 
     return out[:limit]
+
+
+
+@dataclass
+class SearchReport:
+    """실시간 실행은 엔드포인트 성공·실패를 숨기지 않고 받아 기록한다."""
+    items: list[RawItem]
+    succeeded: bool
+    error: Optional[str] = None
+
+
+def search_endpoint(keyword: str, source_kind: SourceKind, provider: str,
+                    endpoint_path: str, limit: int = 10) -> SearchReport:
+    """하나의 명시적 엔드포인트만 호출한다. 기존 배치 search() 계약은 유지한다."""
+    endpoint = next((e for e in ENDPOINTS.get(source_kind, ())
+                     if e.provider == provider and e.path == endpoint_path), None)
+    if endpoint is None:
+        return SearchReport([], False, "지원되지 않는 검색 출처입니다")
+    if not _has_keys(provider):
+        return SearchReport([], False, f"{provider} 검색 키가 없습니다")
+    if is_blocked(provider):
+        return SearchReport([], False, f"{provider} 연속 실패로 이번 실행에서 중단했습니다")
+    try:
+        page_cap = NAVER_MAX_DISPLAY if provider == PROVIDER_NAVER else KAKAO_MAX_SIZE
+        items = _fetch_endpoint(keyword, source_kind, endpoint, max(1, min(limit, page_cap)), strict=True)
+    except QuotaExceeded:
+        return SearchReport([], False, f"{provider} 일일 검색 한도에 도달했습니다")
+    except SearchError:
+        # 원시 오류는 키나 공급자 응답 내용을 담을 수 있어 공개 상태에 싣지 않는다.
+        logger.warning("실시간 검색 실패: %s/%s", provider, endpoint_path)
+        return SearchReport([], False, f"{provider}/{endpoint_path} 검색 요청이 실패했습니다")
+    return SearchReport(items, True)

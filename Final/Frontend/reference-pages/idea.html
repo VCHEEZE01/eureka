@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EUREKA - 유레카 추천 아이디어</title>
+  <!-- Google Fonts: IBM Plex Sans KR, Noto Sans KR, Inter & Iceland -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@200;300;400;500;600;700&family=Iceland&family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
+      background: #F2EEFF;
+      color: #333;
+      overflow-x: hidden;
+    }
+
+    /* 상단 고정 헤더 GNB 바 (기존 페이지와 100% 동일) */
+    .fixed-gnb {
+      width: 100%;
+      height: 75px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      justify-content: center;
+      background: rgba(246, 245, 253, 0.60);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 1000001;
+      border: none !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    .fixed-gnb-inner {
+      width: 1312px;
+      max-width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+    }
+    @media (max-width: 1440px) {
+      .fixed-gnb-inner {
+        width: 100%;
+        padding: 0 64px;
+      }
+    }
+    .nav-item {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    .nav-item:hover {
+      opacity: 0.7;
+    }
+
+    /* 전체 레이아웃 구도: 상단 75px GNB + 좌측 고정 사이드바(440px) + 우측 연보라 메인 영역 */
+    .app-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+      padding-top: 75px;
+    }
+
+    /* =========================================================
+       1. 좌측 고정 네비게이션 서브 패널 (Sticky / Fixed Left Bar - 440px)
+       ========================================================= */
+    .sidebar-fixed {
+      width: 440px;
+      height: calc(100vh - 75px);
+      position: fixed;
+      left: 0;
+      top: 75px;
+      background: #FFFFFF;
+      box-shadow: 0px 10px 20px rgba(94.4, 94.4, 94.4, 0.11);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      padding: 32px 32px 28px 32px;
+      overflow: hidden; /* 이동 스크롤바 완전 제거 */
+    }
+    .sidebar-fixed::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 뒤로가기 버튼 스타일 */
+    .back-btn {
+      font-size: 16px;
+      font-weight: 500;
+      color: #333333;
+      cursor: pointer;
+      margin-bottom: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      user-select: none;
+      width: fit-content;
+    }
+    .back-btn:hover {
+      opacity: 0.7;
+      color: #6B42FF;
+    }
+
+    /* 보라색 문제 카드 띠 (통일 규격 - 440px 크기 확장) */
+    .purple-header-card {
+      width: calc(100% + 32px);
+      height: 193px;
+      margin-left: -32px; /* 좌측 붙이기 */
+      background: #6B42FF;
+      box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.25);
+      border-top-right-radius: 20px;
+      border-bottom-right-radius: 20px;
+      padding: 25px 45px;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .purple-header-title {
+      font-size: 30px;
+      font-weight: 600;
+      line-height: 38px;
+      letter-spacing: 1px;
+      word-break: keep-all;
+    }
+
+    /* 하단 안내 문구 컨테이너 */
+    .info-guide-box {
+      margin-top: auto;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .guide-title {
+      font-size: 19px;
+      font-weight: 500;
+      color: #000000;
+      font-family: 'Inter', sans-serif;
+    }
+    .guide-sub-desc {
+      font-size: 14px;
+      font-weight: 300;
+      color: #333333;
+      line-height: 22px;
+      letter-spacing: 0.5px;
+      word-break: keep-all;
+    }
+
+    /* 맞춤 아이디어 받기 그라데이션 버튼 */
+    .btn-gradient-custom {
+      margin-top: 24px;
+      margin-bottom: 10px;
+      width: 100%;
+      padding: 16px 24px;
+      background: linear-gradient(90deg, #7C3AED 0%, #6004FF 100%);
+      box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.18);
+      border-radius: 40px;
+      color: #FFFFFF;
+      font-size: 19px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      user-select: none;
+    }
+    .btn-gradient-custom:hover {
+      transform: translateY(-2px);
+      box-shadow: 3px 6px 15px rgba(96, 4, 255, 0.3);
+    }
+
+    /* =========================================================
+       2. 우측 메인 상세 내용 영역 (#F2EEFF 연보라 배경)
+       ========================================================= */
+    .main-content {
+      margin-left: 440px;
+      flex: 1;
+      padding: 50px 60px 100px 70px;
+      position: relative;
+    }
+
+    .recommend-title {
+      font-size: 32px;
+      font-weight: 500;
+      color: #000000;
+      margin-bottom: 36px;
+    }
+
+    /* 아이디어 카드 리스트 */
+    .idea-cards-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      max-width: 939px;
+    }
+
+    .idea-card-item {
+      width: 939px;
+      min-height: 156px;
+      background: #FFFFFF;
+      box-shadow: 0px 0px 50px 10px rgba(125.05, 125.05, 125.05, 0.04);
+      border-radius: 30px;
+      position: relative;
+      padding: 28px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .idea-card-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0px 10px 30px rgba(107, 66, 255, 0.12);
+    }
+
+    .idea-card-title {
+      font-size: 30px;
+      font-weight: 500;
+      color: #000000;
+      font-family: 'Noto Sans KR', sans-serif;
+      margin-bottom: 8px;
+      line-height: 44px;
+    }
+
+    .idea-card-desc {
+      font-size: 20px;
+      font-weight: 350;
+      color: #333333;
+      font-family: 'Noto Sans KR', sans-serif;
+      line-height: 38px;
+      max-width: 730px;
+      word-break: keep-all;
+    }
+
+    /* 우측 하단 투명 대형 숫자 */
+    .big-number-bg {
+      position: absolute;
+      right: 40px;
+      bottom: 8px;
+      font-size: 96px;
+      font-weight: 900;
+      color: rgba(141, 141, 141, 0.20);
+      font-family: 'Noto Sans KR', sans-serif;
+      user-select: none;
+      line-height: 1;
+    }
+
+    /* 좁은 화면에서는 아직 연결되지 않은 보조 메뉴를 감추고 홈 로고를 유지한다. */
+    @media (max-width: 800px) {
+      .fixed-gnb-inner { width: 100%; padding: 0 20px; }
+      .fixed-gnb-inner > div { min-width: 0; gap: 16px !important; }
+      .fixed-gnb .nav-item { display: none; white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 상단 화면 전체(100%) 고정 네비게이션 바 (공통 동일 적용) -->
+  <div class="fixed-gnb">
+    <div class="fixed-gnb-inner">
+      <div style="justify-content: flex-start; align-items: center; gap: 50px; display: flex">
+        <div onclick="goHome()" title="홈으로 이동"
+          style="justify-content: center; display: flex; flex-direction: column; color: black; font-size: 44px; font-family: 'Iceland', cursive; font-weight: 400; line-height: 1.2; cursor: pointer;">
+          EUREKA</div>
+        <div class="nav-item" style="color: black; font-size: 20px;">커뮤니티</div>
+        <div class="nav-item" style="color: black; font-size: 20px;">요금제</div>
+      </div>
+      <div style="justify-content: flex-start; align-items: center; gap: 48px; display: flex">
+        <div class="nav-item" style="color: black; font-size: 20px;">로그인</div>
+        <div class="nav-item" style="color: black; font-size: 20px;">마이페이지</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <!-- =========================================================
+       1. 좌측 고정 네비게이션 서브 패널
+       ========================================================= -->
+    <div class="sidebar-fixed">
+      <!-- 뒤로가기 버튼 -->
+      <div class="back-btn" onclick="goBack()" title="이전 화면으로 돌아가기">
+        &lt; 뒤로가기
+      </div>
+
+      <!-- 메인 타이틀 카드 (보라색 띠) -->
+      <div class="purple-header-card">
+        <div class="purple-header-title" id="side-problem-title">
+          스터디를 시작해도 꾸준히<br/>참여하기 어려워요
+        </div>
+      </div>
+
+      <!-- 하단 안내 문구 -->
+      <div class="info-guide-box">
+        <div class="guide-title">나에게 맞는 아이디어가 필요하다면</div>
+        <div class="guide-sub-desc">
+          원하는 조건을 추가하면 선택한 문제를 바탕으로<br/>조건에 맞는 새로운 아이디어를 제안해드려요
+        </div>
+      </div>
+
+      <!-- 맞춤 아이디어 받기 그라데이션 버튼 -->
+      <div class="btn-gradient-custom" onclick="requestCustomIdea()">
+        맞춤 아이디어 받기
+      </div>
+    </div>
+
+    <!-- =========================================================
+       2. 우측 메인 연보라 콘텐츠 영역 (#F2EEFF)
+       ========================================================= -->
+    <div class="main-content">
+      <div class="recommend-title">유레카가 추천하는 아이디어 3가지</div>
+
+      <div class="idea-cards-wrapper">
+        <!-- 01번 카드 -->
+        <div class="idea-card-item">
+          <div class="idea-card-title">만들기 전 반응 확인</div>
+          <div class="idea-card-desc">
+            개발 전에 한 장 짜리 소개 페이지를 만들어 실제 사용자 반응을 확인하는 서비스
+          </div>
+          <div class="big-number-bg">01</div>
+        </div>
+
+        <!-- 02번 카드 -->
+        <div class="idea-card-item">
+          <div class="idea-card-title">단계별 보상 스터디 플랫폼</div>
+          <div class="idea-card-desc">
+            참여 목표 달성 시 단계별 보상을 지급하여 완주율을 높이는 모임 케어 시스템
+          </div>
+          <div class="big-number-bg">02</div>
+        </div>
+
+        <!-- 03번 카드 -->
+        <div class="idea-card-item">
+          <div class="idea-card-title">AI 버디 출석 메이트</div>
+          <div class="idea-card-desc">
+            스터디 팀원의 출석 상태와 커밋을 실시간 자동 트래킹하고 독려해주는 AI 매니저
+          </div>
+          <div class="big-number-bg">03</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function goBack() {
+      if (parent.__hasPrevious) {
+        parent.history.back();
+      } else {
+        parent.__navigate('detail.html');
+      }
+    }
+
+    function goHome() {
+      parent.__navigate('index.html');
+    }
+
+    function requestCustomIdea() {
+      parent.__navigate('personalize.html?id=' + targetId);
+    }
+
+    // 샘플 전체 데이터
+    const rawData = [
+      { id: 1, title: "스터디를 시작해도 꾸준히 참여하기 어려워요" },
+      { id: 2, title: "1인 가구 음식 재료 남음 및 음식물 쓰레기 문제" },
+      { id: 3, title: "팀 프로젝트 시 업무 분담 및 가시성 부족" },
+      { id: 4, title: "개인 자산 관리 시 지출 분류 자동화 한계" },
+      { id: 5, title: "운동 루틴 일지 작성의 귀찮음 및 불연속성" }
+    ];
+
+    // URL 파라미터에서 문제 정보 바인딩
+    const urlParams = new URLSearchParams(parent.__search);
+    const targetId = parseInt(urlParams.get('id')) || 1;
+    const itemData = rawData.find(d => d.id === targetId) || rawData[0];
+
+    document.getElementById('side-problem-title').innerHTML = itemData.title.replace('꾸준히', '꾸준히<br/>');
+  </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ from datetime import datetime
 
 import pytest
 
+from app.config.dictionaries import PAIN_SIGNALS, PAIN_SIGNALS_TIER1, PAIN_SIGNALS_TIER2
 from app.schemas.models import CollectMode, LicensePolicy, RawItem, SourceKind
 from app.tools.text_tool import (
     Verdict,
@@ -16,7 +17,10 @@ from app.tools.text_tool import (
     content_hash,
     extract_sentences,
     has_need_signal,
+    has_payment_signal,
     is_ad,
+    item_text,
+    payment_signal_hits,
     pick_excerpt,
     rule_judge,
     signal_hits,
@@ -192,6 +196,40 @@ def test_has_need_signal_true_only_for_deficiency_expressions():
     # 불편 신호이긴 하나 결핍 유형이 아니면 False
     assert has_need_signal("매번 손으로 옮겨서 번거롭다") is False
     assert has_need_signal("") is False
+
+
+def test_payment_signal_hits_returns_matched_expressions():
+    assert payment_signal_hits("구독료가 아까워서 결제했는데 후회한다") == ["결제했는데", "구독료"]
+    assert payment_signal_hits("오늘 날씨가 좋다") == []
+    assert payment_signal_hits("") == []
+
+
+def test_has_payment_signal_true_only_for_payment_expressions():
+    assert has_payment_signal("돈 내고 쓰는데도 이 모양이다") is True
+    assert has_payment_signal("환불받으려 했는데 절차가 복잡하다") is True
+    # 불편 신호이긴 하나 지불 유형이 아니면 False
+    assert has_payment_signal("매번 손으로 옮겨서 번거롭다") is False
+    assert has_payment_signal("") is False
+
+
+def test_item_text_is_public_alias_of_item_text():
+    """aggregate_tool 이 판별 때와 같은 정제 텍스트를 봐야 건수가 어긋나지 않는다."""
+    item = make_item("가계부 정리가 매번 번거롭다", title="가계부")
+    assert item_text(item) == clean_text(f"{item.title} {item.snippet}", 1_000_000)
+
+
+# ══════════════════════════════════════════════
+# 사전 회귀 — PAYMENT_SIGNALS 를 PAIN_SIGNALS 로 병합하는 실수를 막는다
+# (dictionaries.py 의 "4곳이 깨진다" 경고 참고)
+# ══════════════════════════════════════════════
+
+
+def test_pain_signal_dictionary_covers_eight_groups_without_payment_merge():
+    assert len(PAIN_SIGNALS) == 8
+    assert {"정보 혼선", "접근 제약"}.issubset(PAIN_SIGNALS)
+    assert len(PAIN_SIGNALS_TIER1) == 10
+    assert set(PAIN_SIGNALS_TIER2) == {term for values in PAIN_SIGNALS.values() for term in values if term not in PAIN_SIGNALS_TIER1}
+    assert "구독료" not in {term for values in PAIN_SIGNALS.values() for term in values}
 
 
 def test_is_ad_detects_promotion_patterns():

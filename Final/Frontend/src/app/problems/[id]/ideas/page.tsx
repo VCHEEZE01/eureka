@@ -1,6 +1,6 @@
-import { BasicIdeasScreen } from '@/screens/Ideas';
+import { notFound } from 'next/navigation';
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <BasicIdeasScreen problemId={id} />;
+/** 문제 기반 기본 아이디어(F06)는 현재 잠금 기능이다. */
+export default function Page() {
+  notFound();
 }

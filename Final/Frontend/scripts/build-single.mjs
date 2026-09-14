@@ -15,8 +15,13 @@ import { build } from 'esbuild';
 
 const root = path.resolve(import.meta.dirname, '..');
 const tmp = path.join(root, '.single-tmp');
-/** 찾기 쉽도록 TAEYUN 폴더 바로 아래에 떨어뜨린다. */
-const outFile = path.resolve(root, '..', 'eureka-공유용.html');
+/**
+ * 찾기 쉽도록 Final/Frontend 바로 아래에 떨어뜨린다.
+ * ★ 2026-09-12: TAEYUN/prototype에서 이식하며 경로를 한 단계 내렸다.
+ *   예전 경로(`path.resolve(root, '..', ...)`)는 TAEYUN 기준이라, 이식 후
+ *   그대로 두면 Final/ 바로 아래에 엉뚱한 사본이 하나 더 생긴다.
+ */
+const outFile = path.resolve(root, 'eureka-공유용.html');
 
 fs.mkdirSync(tmp, { recursive: true });
 
@@ -54,7 +59,7 @@ const bundled = await build({
   charset: 'utf8',
   jsx: 'automatic',
   write: false,
-  define: { 'process.env.NODE_ENV': '"production"' },
+  define: { 'process.env.NODE_ENV': '"production"', 'process.env.NEXT_PUBLIC_API_BASE': '""', 'process.env.NEXT_PUBLIC_DATA_MODE': '"demo"' },
   alias: { '@': path.join(root, 'src') },
   // 'use client'는 Next.js 전용 지시어라 여기서는 의미가 없다. 경고를 끈다.
   logOverride: { 'unsupported-jsx-comment': 'silent', 'ignored-bare-import': 'silent' },

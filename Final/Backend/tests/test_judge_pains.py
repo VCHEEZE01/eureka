@@ -516,6 +516,87 @@ def test_판별은_temperature_0_으로_부른다(llm, item):
 
 
 # ══════════════════════════════════════════════
+# 근거 상세 페이지 라벨 — sufferer_role · age_band · gender · mentioned_service
+# ══════════════════════════════════════════════
+
+
+def test_직업만_밝히고_성별_자기서술이_없으면_gender_는_None(llm, make_raw_item):
+    """
+    ★ 계획 문서 Step 10 고정 테스트.
+
+    "간호사인데 매번 번거로워요" 에는 성별을 직접 밝히는 표현이 없다.
+    모델이 sufferer_gender="여자" 를 줘도 llm_tool 이 규칙으로 버려야 한다 —
+    직업으로 성별을 추측하는 것은 편견이다.
+    """
+    item = make_raw_item(
+        id="raw-001",
+        title="간호사인데 매번 번거로워요",
+        snippet="간호사인데 교대근무 스케줄을 매번 손으로 맞추는 게 번거롭습니다.",
+    )
+    llm([row("raw-001", sufferer_gender="여자", sufferer_role="직장인")])
+
+    (j,) = judge_pains([item])
+
+    assert j.sufferer_gender is None
+    assert j.sufferer_role == "직장인"  # 역할은 고정 목록 안이라 그대로 통과한다
+
+
+def test_성별_자기서술이_있으면_gender_가_채워진다(llm, make_raw_item):
+    item = make_raw_item(
+        id="raw-001",
+        title="회의록 정리가 번거롭다",
+        snippet="저는 30대 여자이고 회의록을 매번 손으로 옮겨 적는 게 번거롭습니다.",
+    )
+    llm([row("raw-001", sufferer_gender="여자", sufferer_age_band="30대")])
+
+    (j,) = judge_pains([item])
+
+    assert j.sufferer_gender == "여자"
+    assert j.sufferer_age_band == "30대"
+
+
+def test_고정_목록_밖의_role_은_None으로_버린다(llm, item):
+    llm([row("raw-001", sufferer_role="사장님")])  # SUFFERER_ROLES 에 없는 값
+
+    (j,) = judge_pains([item])
+
+    assert j.sufferer_role is None
+
+
+def test_원문에_없는_service_이름은_None으로_버린다(llm, item):
+    llm([row("raw-001", mentioned_service="지어낸서비스")])
+
+    (j,) = judge_pains([item])
+
+    assert j.mentioned_service is None
+
+
+def test_원문에_있는_service_이름은_통과한다(llm, make_raw_item):
+    item = make_raw_item(
+        id="raw-001",
+        title="토스로 정리해봐도 회의록은 안 됩니다",
+        snippet="토스 가계부 기능을 써봤는데 회의록 정리에는 안 맞아서 여전히 번거롭습니다.",
+    )
+    llm([row("raw-001", mentioned_service="토스")])
+
+    (j,) = judge_pains([item])
+
+    assert j.mentioned_service == "토스"
+
+
+def test_강등된_건은_새_라벨도_전부_None이다(llm, make_raw_item):
+    llm(error=LLMError("500"))
+    item = make_raw_item(id="raw-001")
+
+    (j,) = judge_pains([item])
+
+    assert j.sufferer_role is None
+    assert j.sufferer_age_band is None
+    assert j.sufferer_gender is None
+    assert j.mentioned_service is None
+
+
+# ══════════════════════════════════════════════
 # 오프라인 경로 (LLM_DRY_RUN)
 # ══════════════════════════════════════════════
 
@@ -533,3 +614,13 @@ def test_EchoLLM_으로도_배선이_돈다(make_raw_item):
 
     assert [j.raw_item_id for j in out] == [f"raw-{i:03d}" for i in range(1, 6)]
     assert all(j.confidence in ("높음", "중간", "낮음") for j in out)
+
+
+def test_missing_response_reports_exact_failed_ids_once(llm, make_raw_item):
+    items=[make_raw_item(id="present"),make_raw_item(id="missing")]
+    llm([row("present")])
+    diagnostics={}
+    result=judge_pains(items,diagnostics=diagnostics)
+    assert diagnostics["failed_raw_ids"]==["missing"]
+    assert diagnostics["failed_items"]==1
+    assert result[1].pain_status=="insufficient"

@@ -16,6 +16,7 @@
     held/{주차}/{카테고리}.jsonl         규칙으로 판별 못 해 보류한 RawItem
     overflow/{주차}/{카테고리}.jsonl     LLM 상한을 넘겨 다음 주로 미룬 RawItem
     pending/candidates.jsonl             MIN_GROUP_SIZE 미만이라 승격 대기중인 묶음
+    candidates/{주차}/{카테고리}.jsonl   승격된 문제 후보(ProblemCandidate) — ②′이 읽는다
     index/seen_ids.txt                   다음 배치의 중복 판정 근거
     index/seen_hashes.txt
     manifests/{주차}.json                배치 1회의 모든 숫자
@@ -47,6 +48,7 @@ JUDGEMENT_DIR = "judgements"
 HELD_DIR = "held"
 OVERFLOW_DIR = "overflow"
 PENDING_DIR = "pending"
+CANDIDATE_DIR = "candidates"
 INDEX_DIR = "index"
 MANIFEST_DIR = "manifests"
 
@@ -345,6 +347,87 @@ def save_pending_candidates(groups: list[ProblemCandidate]) -> None:
 
 def load_pending_candidates() -> list[ProblemCandidate]:
     return _read_models(_path(PENDING_DIR, PENDING_CANDIDATES_FILE), ProblemCandidate)
+
+
+# ══════════════════════════════════════════════
+# 승격된 문제 후보 (candidates) — ②′ 근거 조립기가 읽는다
+# ══════════════════════════════════════════════
+
+
+def save_candidates(
+    groups: list[ProblemCandidate], category: Category, *, week: Optional[str] = None
+) -> None:
+    """
+    MIN_GROUP_SIZE 이상이라 승격된 묶음. interpreter_agent.run() 이 반환 직전에 부른다.
+
+    ★ 이게 없으면 InterpreterAgent 의 반환값이 파이프라인 밖에서 즉시 사라진다.
+      근거 조립기(EvidenceAgent)가 다음 배치에서 다시 읽을 수 있게 여기 남긴다.
+    """
+    _append_lines(
+        _bucket_path(CANDIDATE_DIR, week or week_key(), category_slug(category)),
+        _dump(groups),
+    )
+
+
+def load_candidates(
+    week: Optional[str] = None, category: Optional[Category] = None
+) -> list[ProblemCandidate]:
+    """week 를 안 주면 전 주차, category 를 안 주면 전 카테고리."""
+    out: list[ProblemCandidate] = []
+    for _, _, path in _bucket_files(CANDIDATE_DIR, week, category):
+        out.extend(_read_models(path, ProblemCandidate))
+    return out
+
+
+# ══════════════════════════════════════════════
+# id 로 원문·판정 되짚기 — ②′ 근거 조립기 전용
+# ══════════════════════════════════════════════
+#
+# ★ 전체 스캔 1회로 dict 를 만들어 반환한다. id 마다 스캔하면 O(n×m) 이 된다.
+#   candidate 여러 개가 겹쳐 쓰는 raw_item_id 를 한 번에 다 찾아야 하므로,
+#   호출자는 후보마다 부르지 말고 전체 id 를 합쳐 한 번만 불러야 한다.
+
+
+def load_raw_items_by_ids(
+    ids: Iterable[str], *, weeks: int = settings.EVIDENCE_LOOKBACK_WEEKS
+) -> dict[str, RawItem]:
+    """id → RawItem. 최근 weeks 주를 한 번만 훑고, 다 찾으면 그 자리에서 멈춘다."""
+    wanted = set(ids)
+    out: dict[str, RawItem] = {}
+    if not wanted:
+        return out
+
+    for week in recent_weeks(weeks):
+        for _, _, path in _bucket_files(RAW_DIR, week, None):
+            for item in _read_models(path, RawItem):
+                if item.id in wanted and item.id not in out:
+                    out[item.id] = item
+            if len(out) >= len(wanted):
+                break
+        if len(out) >= len(wanted):
+            break
+    return out
+
+
+def load_judgements_by_ids(
+    ids: Iterable[str], *, weeks: int = settings.EVIDENCE_LOOKBACK_WEEKS
+) -> dict[str, Judgement]:
+    """raw_item_id → Judgement. load_raw_items_by_ids 와 같은 스캔 패턴."""
+    wanted = set(ids)
+    out: dict[str, Judgement] = {}
+    if not wanted:
+        return out
+
+    for week in recent_weeks(weeks):
+        for _, _, path in _bucket_files(JUDGEMENT_DIR, week, None):
+            for j in _read_models(path, Judgement):
+                if j.raw_item_id in wanted and j.raw_item_id not in out:
+                    out[j.raw_item_id] = j
+            if len(out) >= len(wanted):
+                break
+        if len(out) >= len(wanted):
+            break
+    return out
 
 
 # ══════════════════════════════════════════════

@@ -1,10 +1,28 @@
 'use client';
+
 /**
- * Next.js 용 라우팅 구현.
- *
- * 화면은 lib/nav.tsx 의 useNav() 만 쓰고, 그 뒤에 이 파일이 붙는다.
- * 공유용 단일 HTML 에서는 이 대신 해시 기반 구현이 들어간다.
- *
- * 만들 것 : next/navigation 을 감싸서 nav.tsx 가 정의한 모양으로 맞추기
+ * Next.js용 NavProvider.
+ * 화면(screens/)은 이 파일을 몰라도 되고 useNav()만 쓴다.
+ * 공유용 단일 HTML에서는 이 대신 useHashNav()가 들어간다.
  */
-export {};  // TODO: 프론트 담당자가 구현
+
+import { usePathname, useRouter } from 'next/navigation';
+import { useMemo, type ReactNode } from 'react';
+import { NavProvider, type NavApi } from './nav';
+
+export function NextNavProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const api = useMemo<NavApi>(
+    () => ({
+      path: pathname || '/',
+      go: (next) => router.push(next),
+      back: () => router.back(),
+      hrefFor: (next) => next,
+    }),
+    [pathname, router],
+  );
+
+  return <NavProvider value={api}>{children}</NavProvider>;
+}

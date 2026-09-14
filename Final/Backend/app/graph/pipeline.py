@@ -19,21 +19,87 @@
 from typing import Optional
 
 from app.agents.base import ProgressFn
-from app.agents.problem_agent import ProblemOutput
-from app.schemas.models import Category, Idea, Problem, SourceKind, UserCondition
+from app.agents.collector_agent import CollectInput, CollectorAgent
+from app.agents.evidence_agent import EvidenceAgent, EvidenceInput
+from app.agents.interpreter_agent import InterpretInput, InterpreterAgent
+from app.agents.problem_agent import ProblemAgent, ProblemInput, ProblemOutput
+from app.schemas.models import (
+    Category,
+    EvidenceBundle,
+    Idea,
+    Problem,
+    ProblemCandidate,
+    SourceKind,
+    UserCondition,
+)
 
 
 def run_collect_pipeline(
     category: Category,
     source_kinds: Optional[list[SourceKind]] = None,
     on_progress: Optional[ProgressFn] = None,
-) -> list[Problem]:
+    *,
+    use_llm: bool = True,
+) -> list[EvidenceBundle]:
     """
-    [배치] 수집 → 해석 → 문제정의 → 게시.
+    [배치] 수집 → 해석 → 근거 조립. ★ ③ 문제정의 생성기 이전까지다.
 
-    실패해도 사용자 화면에는 영향이 없어야 한다.
+    ③(ProblemAgent)이 아직 스텁이라 Problem 객체를 만들 수 없다. 대신 근거
+    조립기(②′)까지 연결해 두면, ③이 없어도 근거 상세 페이지가 필요로 하는
+    ProblemSignals·PublishGate·근거 선별이 전부 나온다 — ③을 기다리지 않는다.
+
+    on_progress 를 세 에이전트에 그대로 넘기면 steps 9개
+    (수집 3 + 해석 3 + 근거 3)가 순서대로 흐른다.
+
+    실패해도 사용자 화면에는 영향이 없어야 한다 — 각 에이전트가 자기 선에서
+    예외를 삼킨다(CollectorAgent 는 쿼리 단위, InterpreterAgent 는 판정 단위).
     """
-    raise NotImplementedError
+    # docs/DATA_SPEC.md 0절: 배치는 항상 전체 출처를 수집한다.
+    kinds = source_kinds if source_kinds else list(SourceKind)
+    items = CollectorAgent(on_progress).run(
+        CollectInput(category=category, source_kinds=kinds)
+    )
+    candidates = InterpreterAgent(on_progress).run(
+        InterpretInput(items=items, category=category, use_llm=use_llm)
+    )
+    bundles = EvidenceAgent(on_progress).run(EvidenceInput(candidates=candidates))
+    return bundles
+
+
+def build_problem_outputs(
+    candidates: list[ProblemCandidate],
+    on_progress: Optional[ProgressFn] = None,
+    *,
+    persist: bool = True,
+    allow_hold_draft: bool = False,
+) -> list[ProblemOutput]:
+    """저장된 후보 → 근거 집계 → 문제정의·검수. 보류 미리보기는 명시적으로 요청한다."""
+    unique = {candidate.id: candidate for candidate in candidates}
+    bundles = EvidenceAgent(on_progress).run(EvidenceInput(candidates=list(unique.values())))
+    agent = ProblemAgent(on_progress)
+    return [agent.run(ProblemInput(
+        candidate=unique[bundle.candidate_id], evidence_bundle=bundle,
+        persist=persist, allow_hold_draft=allow_hold_draft,
+    )) for bundle in bundles]
+
+
+def run_problem_pipeline(
+    category: Category,
+    source_kinds: Optional[list[SourceKind]] = None,
+    on_progress: Optional[ProgressFn] = None,
+    *,
+    limit: int = 50,
+    keyword_limit: Optional[int] = None,
+) -> list[ProblemOutput]:
+    """명시적으로 실행하는 배치 경로. 조회 API에서는 호출하지 않는다."""
+    items = CollectorAgent(on_progress).run(CollectInput(
+        category=category, source_kinds=source_kinds or list(SourceKind),
+        limit=limit, keyword_limit=keyword_limit,
+    ))
+    candidates = InterpreterAgent(on_progress).run(InterpretInput(
+        items=items, category=category, use_llm=True, max_llm_items=limit,
+    ))
+    return build_problem_outputs(candidates, on_progress)
 
 
 def run_combine(

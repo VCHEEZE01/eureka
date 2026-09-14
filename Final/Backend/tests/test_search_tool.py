@@ -6,7 +6,7 @@ search_tool 테스트.
   목킹을 빠뜨리면 그 자리에서 NetworkBlockedError 로 실패한다.
 
 응답 형식은 공식 문서 그대로다.
-  · 네이버  https://openapi.naver.com/v1/search/{blog|news|kin|cafearticle}.json
+  · 네이버  https://naverapihub.apigw.ntruss.com/search/v1/{blog|news|kin|cafearticle}
             items[] {title, link, description, (postdate|pubDate|cafename|originallink)}
   · 카카오  https://dapi.kakao.com/v2/search/{web|blog}
             meta{is_end} + documents[] {title, contents, url, datetime}
@@ -25,10 +25,10 @@ from app.schemas.models import SourceKind
 from app.tools import search_tool
 from app.tools.search_tool import QuotaExceeded, SearchError
 
-NAVER_BLOG_URL = "https://openapi.naver.com/v1/search/blog.json"
-NAVER_NEWS_URL = "https://openapi.naver.com/v1/search/news.json"
-NAVER_KIN_URL = "https://openapi.naver.com/v1/search/kin.json"
-NAVER_CAFE_URL = "https://openapi.naver.com/v1/search/cafearticle.json"
+NAVER_BLOG_URL = "https://naverapihub.apigw.ntruss.com/search/v1/blog"
+NAVER_NEWS_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+NAVER_KIN_URL = "https://naverapihub.apigw.ntruss.com/search/v1/kin"
+NAVER_CAFE_URL = "https://naverapihub.apigw.ntruss.com/search/v1/cafearticle"
 KAKAO_BLOG_URL = "https://dapi.kakao.com/v2/search/blog"
 KAKAO_WEB_URL = "https://dapi.kakao.com/v2/search/web"
 
@@ -89,6 +89,26 @@ def kakao_doc(n: int = 1, **over) -> dict:
 def only_naver_blog():
     """BLOG 매핑에서 네이버 블로그만 남긴다. 한 엔드포인트를 좁혀 볼 때 쓴다."""
     return {SourceKind.BLOG: (search_tool._NAVER_BLOG,)}
+
+
+@respx.mock
+def test_target_search_respects_configured_count_above_ten():
+    route = respx.get(NAVER_BLOG_URL).mock(return_value=httpx.Response(
+        200, json=naver_body([blog_item(i) for i in range(25)])))
+    result = search_tool.search_endpoint("보고서 수작업", SourceKind.BLOG, "naver", "blog", limit=25)
+    assert result.succeeded and len(result.items) == 25
+    assert len(route.calls) == 1
+    assert route.calls[0].request.url.params["display"] == "25"
+
+
+@respx.mock
+def test_target_search_clips_to_provider_page_limit():
+    route = respx.get(KAKAO_BLOG_URL).mock(return_value=httpx.Response(
+        200, json=kakao_body([kakao_doc(i) for i in range(50)])))
+    result = search_tool.search_endpoint("보고서 수작업", SourceKind.BLOG, "kakao", "blog", limit=100)
+    assert result.succeeded and len(result.items) == 50
+    assert len(route.calls) == 1
+    assert route.calls[0].request.url.params["size"] == "50"
 
 
 # ══════════════════════════════════════════════
@@ -231,10 +251,32 @@ def test_네이버_인증헤더와_최신순_정렬을_보낸다(monkeypatch):
     search_tool.search("가계부 번거롭", SourceKind.BLOG, limit=10)
 
     request = route.calls[0].request
-    assert request.headers["X-Naver-Client-Id"] == "test-id"
-    assert request.headers["X-Naver-Client-Secret"] == "test-secret"
+    assert request.headers["X-NCP-APIGW-API-KEY-ID"] == "test-id"
+    assert request.headers["X-NCP-APIGW-API-KEY"] == "test-secret"
+    assert "X-Naver-Client-Id" not in request.headers
+    assert "X-Naver-Client-Secret" not in request.headers
+    assert request.url.params["format"] == "json"
     assert request.url.params["sort"] == "date"  # 최신순 — 반복 수집 방지
     assert request.url.params["start"] == "1"
+
+
+@pytest.mark.parametrize("endpoint,url", [
+    (search_tool._NAVER_BLOG, NAVER_BLOG_URL),
+    (search_tool._NAVER_NEWS, NAVER_NEWS_URL),
+    (search_tool._NAVER_KIN, NAVER_KIN_URL),
+    (search_tool._NAVER_CAFE, NAVER_CAFE_URL),
+])
+@respx.mock
+def test_API_Hub_전체_검색_경로와_인증_계약(endpoint, url):
+    route = respx.get(url).mock(return_value=httpx.Response(200, json=naver_body([])))
+
+    assert search_tool._fetch_endpoint("가계부", SourceKind.BLOG, endpoint, 1) == []
+
+    request = route.calls[0].request
+    assert request.headers["X-NCP-APIGW-API-KEY-ID"] == "test-id"
+    assert request.headers["X-NCP-APIGW-API-KEY"] == "test-secret"
+    assert request.url.params["format"] == "json"
+    assert request.url.params["display"] == "1"
 
 
 @respx.mock
