@@ -1213,45 +1213,123 @@
       overflow: hidden;
     }
 
-    /* IA 정보구조도 스타일 */
-    .ia-tree-container {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
+    /* IA 정보구조도 스타일 — 좌(서비스) → 우(2Depth)로 읽히는 가로형 플로우.
+       depth1 카드가 자기 depth2 자식들과 같은 높이로 stretch 되고, 커넥터 선은
+       28px column-gap의 정중앙(±14px)에서 만나도록 좌우 대칭으로 그린다. */
+    .ia-flow-container {
+      overflow-x: auto;
       margin-top: 10px;
+      padding: 4px 2px 8px;
     }
 
-    @media (max-width: 900px) {
-      .ia-tree-container {
-        grid-template-columns: 1fr;
-      }
+    .ia-flow-grid {
+      display: flex;
+      align-items: stretch;
+      gap: 28px;
+      min-width: 560px;
     }
 
-    .ia-node-card {
+    .ia-groups {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 16px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ia-group {
+      display: flex;
+      align-items: stretch;
+      gap: 28px;
+    }
+
+    .ia-depth2-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ia-node {
+      position: relative;
       background: #FFFFFF;
       border: 1.5px solid #E0E7FF;
       border-radius: 12px;
-      padding: 16px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
     }
 
-    .ia-node-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px dashed #E2E8F0;
+    /* 커넥터: 자기 오른쪽 끝(트렁크, 다음 depth 전체를 잇는 세로선)과
+       자기 왼쪽 끝(스텁, 부모 트렁크까지 이어붙이는 짧은 가로선). */
+    .ia-node.has-children::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: -14px;
+      width: 2px;
+      background: #C7D2FE;
     }
 
-    .ia-depth1-badge {
+    .ia-node.has-parent::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: -14px;
+      width: 14px;
+      height: 2px;
+      background: #C7D2FE;
+    }
+
+    .ia-depth0 {
+      flex: none;
+      width: 152px;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+      background: #4F46E5;
+      border-color: #4F46E5;
+    }
+
+    .ia-depth1 {
+      flex: none;
+      width: 190px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      background: #FAFAFE;
+    }
+
+    .ia-depth2 {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      background: #F8FAFC;
+      border-left: 3px solid #6366F1;
+    }
+
+    .ia-node-badge {
       font-size: 11px;
       font-weight: 700;
-      background: #4F46E5;
-      color: #FFFFFF;
       padding: 2px 8px;
       border-radius: 6px;
       font-family: 'Inter', sans-serif;
+      width: fit-content;
+      background: #4F46E5;
+      color: #FFFFFF;
+    }
+
+    .ia-depth0 .ia-node-badge {
+      background: rgba(255, 255, 255, 0.22);
+      color: #FFFFFF;
     }
 
     .ia-node-title {
@@ -1260,19 +1338,9 @@
       color: #1E293B;
     }
 
-    .ia-depth2-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .ia-depth2-item {
-      display: flex;
-      flex-direction: column;
-      background: #F8FAFC;
-      border-radius: 8px;
-      padding: 8px 10px;
-      border-left: 3px solid #6366F1;
+    .ia-depth0 .ia-node-title {
+      color: #FFFFFF;
+      font-size: 15px;
     }
 
     .ia-sub-title {
@@ -1286,6 +1354,23 @@
       font-size: 12px;
       color: #64748B;
       line-height: 1.4;
+    }
+
+    @media (max-width: 900px) {
+      .ia-flow-grid {
+        min-width: 0;
+      }
+      .ia-flow-grid, .ia-group, .ia-groups, .ia-depth2-col {
+        flex-direction: column;
+        justify-content: flex-start;
+      }
+      .ia-depth0, .ia-depth1 {
+        width: 100%;
+      }
+      .ia-node.has-children::after,
+      .ia-node.has-parent::before {
+        display: none;
+      }
     }
 
     .idea-detail-card {
@@ -1446,6 +1531,41 @@
       background: rgba(0, 0, 0, 0.35);
       padding: 20px;
       border-radius: 12px;
+    }
+
+    /* 기간별(1일·일주일·한달) 프롬프트 탭 */
+    .prompt-duration-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .prompt-duration-tab {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #94A3B8;
+      background: rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .prompt-duration-tab:hover {
+      color: #E2E8F0;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .prompt-duration-tab.active {
+      color: #FFFFFF;
+      background: #6B42FF;
+    }
+
+    .prompt-duration-desc {
+      font-size: 12.5px;
+      color: #94A3B8;
+      margin: 0 0 14px;
     }
 
     /* =========================================================
@@ -1788,18 +1908,18 @@
           </div>
         </div>
 
-        <!-- 3. 구현 난이도 -->
+        <!-- 3. 바이브코딩 작업 기간 -->
         <div class="config-section-group">
           <div class="config-group-title">
-            <span>3. 구현 난이도</span>
+            <span>3. 바이브코딩 작업 기간</span>
           </div>
           <div class="config-group-desc">
-            초급 선택 시 복잡한 백엔드/인증을 배제하고 즉시 배포 가능한 형태로 프롬프트를 작성합니다.
+            기간에 따라 AI에게 넘길 프롬프트의 성격이 달라집니다. 1일은 질문 없이 바로 완성본을 받고, 일주일은 AI와 주고받으며 구체화하고, 한달은 프론트·백엔드를 갖춘 서비스로 키웁니다. 세 가지 프롬프트를 모두 드리니 결과 화면에서 비교해 보셔도 됩니다.
           </div>
-          <div class="option-chips-grid" id="cfg-difficulty-group">
-            <div class="config-chip active" onclick="selectConfigChip(this, 'difficulty', '초급')">🌱 초급 (바이브코딩 최적화 MVP)</div>
-            <div class="config-chip" onclick="selectConfigChip(this, 'difficulty', '중급')">🌿 중급 (인증 및 DB 연동)</div>
-            <div class="config-chip" onclick="selectConfigChip(this, 'difficulty', '도전')">🌳 도전 (AI 파이프라인/실시간)</div>
+          <div class="option-chips-grid" id="cfg-duration-group">
+            <div class="config-chip active" onclick="selectConfigChip(this, 'duration', '1일')">⚡ 1일 (붙여넣고 바로 완성)</div>
+            <div class="config-chip" onclick="selectConfigChip(this, 'duration', '일주일')">🌿 일주일 (AI와 다듬어 완성)</div>
+            <div class="config-chip" onclick="selectConfigChip(this, 'duration', '한달')">🌳 한달 (프론트·백엔드 고도화)</div>
           </div>
         </div>
 
@@ -3163,19 +3283,30 @@
     let currentSort = 'rate';
     let currentCategory = 'all';
 
+    const PROMPT_DURATIONS = ['1일', '일주일', '한달'];
+    const PROMPT_DURATION_DESC = {
+      '1일': '질문 없이 바로 완성본을 받습니다. 폴더 구조와 컴포넌트 코드까지 한 번에 나옵니다.',
+      '일주일': 'AI가 먼저 몇 가지를 되묻습니다. 답하면서 아이디어가 내 상황에 맞게 구체화됩니다.',
+      '한달': '아키텍처 설계부터 주차별 마일스톤까지, 프론트·백엔드를 갖춘 서비스로 키웁니다.'
+    };
+
     let selectedKeyword = null;
     let configSettings = {
       platform: '웹',
       type: '실용',
-      difficulty: '초급',
+      duration: '1일',
       ai: '가벼운 AI API 1개'
     };
     let generatedIdeas = [];
     let activeIdeaIndex = 0;
+    // 아이디어마다 프롬프트가 3개(1일·일주일·한달)라 어느 탭을 보고 있는지 따로 들고 있다.
+    let activePromptTab = configSettings.duration;
     let currentSavedSubTab = 'keywords';
 
     let savedKeywords = JSON.parse(localStorage.getItem('eureka_saved_keywords') || '[]');
     let savedIdeas = JSON.parse(localStorage.getItem('eureka_saved_ideas') || '[]');
+    // 보관함 카드별로 지금 어느 기간 탭을 보고 있는지 (index -> duration)
+    let savedPromptTabs = {};
 
     /* =========================================================
        화면 전환 함수 (팝업이 아닌 완전한 새로운 화면으로 전환)
@@ -3565,7 +3696,7 @@
       const loadingTexts = [
         `#${selectedKeyword.name}의 검색어 데이터 및 SNS 반응 분석 중...`,
         `'${configSettings.type}' 유형에 맞춰 5가지 독창적 시스템 구조 설계 중...`,
-        `'${configSettings.difficulty}' 난이도에 최적화된 MVP 기능 명세 작성 중...`,
+        `정보구조(IA) 설계 및 1일·일주일·한달 기간별 프롬프트 작성 중...`,
         `Cursor 및 Claude에 바로 넣을 수 있는 바이브코딩 프롬프트 생성 완료!`
       ];
 
@@ -3588,7 +3719,6 @@
       const kw = selectedKeyword.name;
       const p = configSettings.platform;
       const t = configSettings.type;
-      const d = configSettings.difficulty;
 
       generatedIdeas = [
         {
@@ -3632,7 +3762,8 @@
               ]
             }
           ],
-          prompt: generateVibePrompt(kw, `${kw} 파인더`, t, p, d, "지도 기반 큐레이션 및 필터링 도구")
+          shortName: `${kw} 파인더`,
+          architecture: "지도 기반 큐레이션 및 필터링 도구"
         },
         {
           id: 2,
@@ -3675,7 +3806,8 @@
               ]
             }
           ],
-          prompt: generateVibePrompt(kw, `${kw} 도감 챌린지`, t, p, d, "게이미피케이션 수집 및 SNS 공유 카드 생성 서비스")
+          shortName: `${kw} 도감 챌린지`,
+          architecture: "게이미피케이션 수집 및 SNS 공유 카드 생성 서비스"
         },
         {
           id: 3,
@@ -3718,7 +3850,8 @@
               ]
             }
           ],
-          prompt: generateVibePrompt(kw, `오늘의 ${kw} 룰렛 & 페어링 봇`, t, p, d, "취향 설문 기반 랜덤 추천 및 카카오톡 공유 앱")
+          shortName: `오늘의 ${kw} 룰렛 & 페어링 봇`,
+          architecture: "취향 설문 기반 랜덤 추천 및 카카오톡 공유 앱"
         },
         {
           id: 4,
@@ -3761,7 +3894,8 @@
               ]
             }
           ],
-          prompt: generateVibePrompt(kw, `${kw} 스마트 타이머 & 계산기`, t, p, d, "특화 유틸리티 타이머 및 가성비 계산 대시보드")
+          shortName: `${kw} 스마트 타이머 & 계산기`,
+          architecture: "특화 유틸리티 타이머 및 가성비 계산 대시보드"
         },
         {
           id: 5,
@@ -3804,14 +3938,21 @@
               ]
             }
           ],
-          prompt: generateVibePrompt(kw, `AI ${kw} 소믈리에`, t, p, d, "Vercel AI SDK 기반 초경량 대화형 어시스턴트 웹앱")
+          shortName: `AI ${kw} 소믈리에`,
+          architecture: "Vercel AI SDK 기반 초경량 대화형 어시스턴트 웹앱"
         }
       ];
+
+      // 아이디어마다 실제 IA·기능 목록을 담아 1일·일주일·한달 프롬프트 3종을 만든다.
+      generatedIdeas.forEach(idea => {
+        idea.prompts = buildPrompts(idea, { keyword: kw, platform: p, type: t, ai: configSettings.ai });
+      });
 
       document.getElementById('result-loading-screen').style.display = 'none';
       document.getElementById('result-main-screen').style.display = 'block';
 
-      document.getElementById('result-config-summary').innerText = `${p} · ${t}형 · ${d} 난이도`;
+      activePromptTab = configSettings.duration;
+      document.getElementById('result-config-summary').innerText = `${p} · ${t}형 · ${configSettings.duration} 코스`;
       document.getElementById('result-main-title').innerText = `#${kw} 맞춤 서비스 아이디어 5선`;
 
       renderIdeasSidebar();
@@ -3832,6 +3973,42 @@
       `).join('');
     }
 
+    // idea.ia = [{ depth1, depth2: [{title, desc}] }] 를 좌(서비스)→우(2Depth) 플로우로 그린다.
+    // depth1 카드는 자기 depth2 자식들과 나란히 묶여(.ia-group) 같은 높이로 stretch 되고,
+    // 커넥터는 28px column-gap의 정중앙(±14px)에서 만난다 — 항목 개수·깊이가 달라져도 무너지지 않는다.
+    function renderIAFlow(iaList, serviceName) {
+      const groupsHtml = iaList.map(node => `
+        <div class="ia-group">
+          <div class="ia-node ia-depth1 has-parent has-children">
+            <span class="ia-node-badge">1 Depth</span>
+            <span class="ia-node-title">${node.depth1}</span>
+          </div>
+          <div class="ia-depth2-col">
+            ${node.depth2.map(sub => `
+              <div class="ia-node ia-depth2 has-parent">
+                <span class="ia-sub-title">2 Depth · ${sub.title}</span>
+                <span class="ia-sub-desc">${sub.desc}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="ia-flow-container">
+          <div class="ia-flow-grid">
+            <div class="ia-node ia-depth0 has-children">
+              <span class="ia-node-badge">SERVICE</span>
+              <span class="ia-node-title">${serviceName}</span>
+            </div>
+            <div class="ia-groups">
+              ${groupsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     function showIdeaDetail(index) {
       activeIdeaIndex = index;
       renderIdeasSidebar();
@@ -3847,7 +4024,7 @@
                 <span class="status-badge rising" style="font-size: 13px;">IDEA 0${idea.id}</span>
                 <span class="status-badge" style="background: #F3F4F6; color: #4B5563; font-size: 13px;">${configSettings.platform}</span>
                 <span class="status-badge" style="background: #FAF5FF; color: #7C3AED; font-size: 13px;">${configSettings.type}형</span>
-                <span class="status-badge" style="background: #ECFDF5; color: #059669; font-size: 13px;">${configSettings.difficulty} 난이도</span>
+                <span class="status-badge" style="background: #ECFDF5; color: #059669; font-size: 13px;">${configSettings.duration} 코스</span>
               </div>
               <h3 class="idea-main-name">${idea.name}</h3>
               <p class="idea-slogan">"${idea.slogan}"</p>
@@ -3904,28 +4081,11 @@
               <div class="spec-item-title" style="color: #4338CA; margin-bottom: 12px;">
                 🗺️ 서비스 정보구조도 (IA - Information Architecture)
               </div>
-              <div class="ia-tree-container">
-                ${idea.ia.map(node => `
-                  <div class="ia-node-card">
-                    <div class="ia-node-header">
-                      <span class="ia-depth1-badge">1 Depth</span>
-                      <span class="ia-node-title">${node.depth1}</span>
-                    </div>
-                    <div class="ia-depth2-list">
-                      ${node.depth2.map(sub => `
-                        <div class="ia-depth2-item">
-                          <span class="ia-sub-title">2 Depth: ${sub.title}</span>
-                          <span class="ia-sub-desc">${sub.desc}</span>
-                        </div>
-                      `).join('')}
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
+              ${renderIAFlow(idea.ia, idea.shortName)}
             </div>
           </div>
 
-          <!-- Cursor / Claude 바이브코딩 프롬프트 코드 박스 -->
+          <!-- Cursor / Claude 바이브코딩 프롬프트 코드 박스 (기간별 3종 탭) -->
           <div class="vibe-prompt-container">
             <div class="vibe-prompt-header">
               <div class="vibe-prompt-title">
@@ -3940,7 +4100,15 @@
                 프롬프트 복사하기
               </button>
             </div>
-            <pre class="vibe-prompt-text" id="prompt-pre-${index}">${idea.prompt}</pre>
+            <div class="prompt-duration-tabs">
+              ${PROMPT_DURATIONS.map(dur => `
+                <div class="prompt-duration-tab ${dur === activePromptTab ? 'active' : ''}" onclick="switchPromptTab(${index}, '${dur}')">
+                  ${dur}
+                </div>
+              `).join('')}
+            </div>
+            <p class="prompt-duration-desc">${PROMPT_DURATION_DESC[activePromptTab]}</p>
+            <pre class="vibe-prompt-text" id="prompt-pre-${index}">${idea.prompts[activePromptTab]}</pre>
           </div>
         </div>
       `;
@@ -3948,38 +4116,107 @@
       document.getElementById('active-idea-card-container').innerHTML = html;
     }
 
-    function generateVibePrompt(kw, ideaName, type, platform, difficulty, architectureDesc) {
-      return `당신은 뛰어난 풀스택 시니어 소프트웨어 엔지니어입니다.
-최근 트렌드 키워드 '#${kw}'을(를) 활용한 바이브코딩 프로젝트 [${ideaName}]을(를) 지금부터 개발합니다.
+    function switchPromptTab(index, duration) {
+      activePromptTab = duration;
+      showIdeaDetail(index);
+    }
+
+    // idea.ia를 프롬프트에 그대로 박아 넣을 텍스트 개요로 펼친다.
+    // 5개 아이디어가 전부 같은 "주요 페이지 4개"를 받던 문제를 없애는 지점 —
+    // 이 아이디어의 실제 정보구조가 곧 AI에게 지시할 화면 구조가 된다.
+    function formatIAOutline(ia) {
+      return ia.map(node => {
+        const subs = node.depth2.map(sub => `  · ${sub.title} — ${sub.desc}`).join('\n');
+        return `- ${node.depth1}\n${subs}`;
+      }).join('\n');
+    }
+
+    // 작업 기간(1일·일주일·한달)마다 AI에게 요구하는 행동이 다르다.
+    // 1일: 되묻지 말고 바로 완성본. 일주일: 착수 전에 먼저 질문해서 사용자 상황에 맞춘다.
+    // 한달: 아키텍처 설계 → 주차별 마일스톤으로 서비스 수준까지 키운다.
+    function buildPrompts(idea, ctx) {
+      const iaOutline = formatIAOutline(idea.ia);
+      const mvpList = idea.mvpFeatures.map((f, i) => `- [핵심 기능 ${i + 1}]: ${f}`).join('\n');
+      const futureList = (idea.futureFeatures || []).map(f => `- ${f}`).join('\n');
+      const stackLine = `추천 기술 스택: ${idea.stack}`;
+
+      const header = duration => `당신은 뛰어난 풀스택 시니어 소프트웨어 엔지니어입니다.
+최근 트렌드 키워드 '#${ctx.keyword}'을(를) 활용한 바이브코딩 프로젝트 [${idea.shortName}]을(를) 지금부터 개발합니다.
 
 # 1. 프로젝트 목표
-- 서비스명: ${ideaName}
-- 핵심 트렌드: #${kw}
-- 플랫폼: ${platform}
-- 기획 유형: ${type} 중심
-- 구현 난이도: ${difficulty} (비개발자도 Cursor/Claude와 협업하여 1~2일 내 즉시 완성 가능한 실용 MVP 구조)
+- 서비스명: ${idea.shortName}
+- 한 줄 컨셉: ${idea.slogan}
+- 핵심 트렌드: #${ctx.keyword}
+- 타깃 사용자: ${idea.target}
+- 플랫폼: ${ctx.platform}
+- 기획 유형: ${ctx.type} 중심
+- 작업 기간: ${duration}
+- 해결하는 문제: ${idea.problem}
+- 해결 방식: ${idea.solution}
+- 차별점: ${idea.diff}`;
 
-# 2. 시스템 아키텍처 및 화면 구조
-- 구조: ${architectureDesc}
+      const architectureSection = `
+# 2. 시스템 아키텍처 및 서비스 정보구조(IA)
+- 전체 구조: ${idea.architecture}
 - 디자인 톤앤매너: 깨끗하고 세련된 모던 UI, 라운드 카드 레이아웃, 직관적인 칩/버튼 인터랙션
-- 주요 페이지:
-  1) 메인 랜딩 및 헤더 (트렌드 키워드 #${kw} 브랜딩 배지)
-  2) 핵심 기능 인터랙션 화면 (데이터 조회, 룰렛 또는 필터 도구)
-  3) 결과 요약 카드 및 클립보드/SNS 공유 모달
-  4) 로컬스토리지 기반 최근 내역 보관함
+- 아래 정보구조(IA)를 그대로 페이지·섹션 구조에 반영하세요:
+${iaOutline}`;
 
-# 3. 핵심 기능 명세
-- [핵심 기능 1]: #${kw}에 대한 실시간/목업 데이터 목록 렌더링 및 실시간 검색/필터 기능
-- [핵심 기능 2]: 사용자 인터랙션에 따른 상태 변화(스탬프 찍기, 추첨, 결과 도출)의 부드러운 애니메이션
-- [핵심 기능 3]: 완성된 결과 데이터를 localStorage에 저장하고 다시 불러올 수 있는 지속성
-- [핵심 기능 4]: Web Share API 또는 HTML2Canvas/클립보드를 활용한 원클릭 결과 공유
+      const mvpSection = `
+# 3. MVP 핵심 기능 명세
+${mvpList}`;
+
+      const day1 = `${header('1일')}
+${architectureSection}
+${mvpSection}
 
 # 4. 개발 제약 사항 및 기술 스택
-- 복잡한 회원가입, 결제, 백엔드 서버 구축은 배제하고 프론트엔드 단독 또는 경량 API 기반으로 구축합니다.
+- ${stackLine}
+- 복잡한 회원가입, 결제, 백엔드 서버 구축은 배제하고 프론트엔드 단독 또는 경량 API(${ctx.ai})만으로 구축합니다.
+- 위 IA의 1Depth 중 핵심 화면 1~2개에 집중하고 나머지는 최소한으로 단순화하세요.
 - 예외 상황(검색 결과 없음, 잘못된 입력)에 대한 친절한 Empty State 안내 UI를 포함하세요.
 - 모바일 화면에서도 깨짐 없는 완전 반응형(Responsive) 레이아웃을 작성하세요.
 
-지금 바로 폴더 구조와 필수 컴포넌트 코드 작성을 시작해 주세요.`;
+질문하지 말고 지금 바로 폴더 구조와 전체 컴포넌트 코드 작성을 시작해 주세요. 비개발자가 그대로 실행만 하면 되는 완성본으로 주세요.`;
+
+      const week = `${header('일주일')}
+${architectureSection}
+${mvpSection}
+
+# 4. 진행 방식 — 먼저 질문하세요
+바로 코드를 작성하지 마세요. 아래 항목을 저에게 먼저 물어보고, 제 답을 받은 뒤에 설계와 코드를 시작하세요.
+- 제가 실제로 이 서비스를 쓸 상황(언제·어디서·왜 켜보는지)이 위 타깃 설명과 맞는지
+- 위 IA의 화면 중 제가 가장 먼저 완성하고 싶은 화면이 무엇인지
+- 데이터를 어디서 가져올지 (직접 입력 / 공개 API / 목업 고정값 중 무엇으로 시작할지)
+- 위 디자인 톤을 그대로 쓸지, 다른 무드를 원하는지
+
+# 5. 개발 제약 사항 및 기술 스택
+- ${stackLine} (경량 BaaS 연동 포함, 예: Supabase)
+- 결제, 복잡한 권한 체계는 이번 범위에서 제외합니다.
+- 제 답변을 반영해 위 IA를 1Depth·2Depth까지 전부 구현하는 Day 1~5 로드맵을 먼저 제시하고, 하루 단위로 코드를 진행하세요.
+- 예외 상황(검색 결과 없음, 잘못된 입력)에 대한 친절한 Empty State 안내 UI를 포함하세요.
+- 모바일 화면에서도 깨짐 없는 완전 반응형(Responsive) 레이아웃을 작성하세요.`;
+
+      const month = `${header('한달')}
+${architectureSection}
+${mvpSection}
+
+# 4. 확장 기능 (여유가 되면 반영)
+${futureList || '- (별도 확장 기능 없음 — MVP를 고도화하는 데 집중하세요)'}
+
+# 5. 진행 방식 — 아키텍처 설계부터
+- 먼저 전체 아키텍처(화면 구조, 데이터 모델, API 설계, 인증 방식)를 설계하고 저에게 검토받으세요.
+- 위 IA를 기준으로 주차별 마일스톤을 나누세요: 1주차 핵심 화면 뼈대, 2주차 데이터 연동·인증, 3주차 확장 기능, 4주차 마무리·배포.
+- 각 주차 산출물마다 결정 이유를 간단히 남기세요 (ADR 형식 권장).
+- 핵심 로직에는 테스트를 작성하고, 배포까지 고려한 구조로 만드세요.
+
+# 6. 기술 스택
+- ${stackLine}를 베이스로 하되, 데이터베이스·인증·배포 환경을 실제 서비스 수준으로 구성하세요.
+- 확장 가능한 폴더 구조와 타입 안정성(TypeScript 등)을 갖추세요.
+
+1주차 산출물부터 시작해 주세요.`;
+
+      return { '1일': day1, '일주일': week, '한달': month };
     }
 
     /* =========================================================
@@ -4037,7 +4274,19 @@
           return;
         }
 
-        container.innerHTML = savedIdeas.map((item, i) => `
+        container.innerHTML = savedIdeas.map((item, i) => {
+          const prompts = getSavedPrompts(item);
+          const durations = Object.keys(prompts);
+          const activeDur = savedPromptTabs[i] || item.duration || durations[0];
+          const tabsHtml = durations.length > 1 ? `
+            <div class="prompt-duration-tabs" style="margin: 10px 0 0;">
+              ${durations.map(dur => `
+                <div class="prompt-duration-tab" style="${dur === activeDur ? 'color:#111827;background:#EEF2FF;' : 'color:#9CA3AF;background:#F3F4F6;'}" onclick="switchSavedPromptTab(${i}, '${dur}')">
+                  ${dur}
+                </div>
+              `).join('')}
+            </div>` : '';
+          return `
           <div class="saved-entry-card" style="flex-direction: column;">
             <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
               <div>
@@ -4049,11 +4298,13 @@
               </button>
             </div>
             <p style="color: #374151; font-size: 14px; margin-bottom: 16px;">"${item.slogan}"</p>
-            <button class="copy-prompt-btn" style="padding: 8px 16px; font-size: 13px; align-self: flex-start;" onclick="copySavedPromptText(${i})">
-              📋 바이브코딩 프롬프트 복사
+            ${tabsHtml}
+            <button class="copy-prompt-btn" style="padding: 8px 16px; font-size: 13px; align-self: flex-start; margin-top: 10px;" onclick="copySavedPromptText(${i})">
+              📋 ${activeDur} 프롬프트 복사
             </button>
           </div>
-        `).join('');
+        `;
+        }).join('');
       }
     }
 
@@ -4071,8 +4322,25 @@
       renderSavedScreen();
     }
 
+    // 예전(피봇 전) 형식으로 저장된 항목은 prompts가 없고 prompt 하나뿐이다.
+    // 그 경우 '1일' 하나짜리 프롬프트 세트로 흡수해서 이후 로직을 통일한다.
+    function getSavedPrompts(item) {
+      if (item.prompts) return item.prompts;
+      if (item.prompt) return { '1일': item.prompt };
+      return {};
+    }
+
+    function switchSavedPromptTab(index, duration) {
+      savedPromptTabs[index] = duration;
+      renderSavedScreen();
+    }
+
     function copySavedPromptText(index) {
-      const text = savedIdeas[index].prompt;
+      const item = savedIdeas[index];
+      const prompts = getSavedPrompts(item);
+      const durations = Object.keys(prompts);
+      const activeDur = savedPromptTabs[index] || item.duration || durations[0];
+      const text = prompts[activeDur] || '';
       navigator.clipboard.writeText(text).then(() => {
         showToast("📋 바이브코딩 프롬프트가 복사되었습니다!");
       });
@@ -4115,7 +4383,8 @@
           name: idea.name,
           slogan: idea.slogan,
           keyword: selectedKeyword.name,
-          prompt: idea.prompt,
+          prompts: idea.prompts,
+          duration: activePromptTab,
           date: new Date().toLocaleDateString('ko-KR')
         });
         showToast(`'${idea.name}' 아이디어가 보관함에 저장되었습니다!`);
@@ -4134,7 +4403,7 @@
     }
 
     function copyPromptToClipboard(index) {
-      const text = generatedIdeas[index].prompt;
+      const text = generatedIdeas[index].prompts[activePromptTab];
       navigator.clipboard.writeText(text).then(() => {
         showToast("📋 바이브코딩 프롬프트가 클립보드에 복사되었습니다!");
       }).catch(() => {
