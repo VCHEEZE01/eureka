@@ -5,3 +5,6 @@ __pycache__/
 venv/
 *.db
 .pytest_cache/
+
+# 수집 코퍼스·실행 기록 (JSONL). 절대 커밋하지 않는다
+data/
