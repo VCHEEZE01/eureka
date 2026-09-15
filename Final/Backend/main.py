@@ -9,6 +9,7 @@ FastAPI 진입점.
   배치가 죽어도 서버는 멀쩡해야 한다.
 """
 
+from app.api.idea_routes import router as idea_router
 from app.api.routes import router
 from app.api.trend_routes import router as trend_router
 from fastapi import FastAPI
@@ -16,3 +17,4 @@ from fastapi import FastAPI
 app = FastAPI(title="유레카 API")
 app.include_router(router)
 app.include_router(trend_router)
+app.include_router(idea_router)

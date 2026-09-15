@@ -4982,29 +4982,101 @@
       configSettings[group] = val;
     }
 
-    function executeIdeaGeneration() {
-      navigateTo('result');
+    // 서버가 주는 기간 키(day/week/month)로 변환. 문서 라벨(1일/한달)과
+    // 화면 칩 라벨(하루/한 달 이상)이 다르므로 여기 한 곳에서만 맞춘다.
+    const PERIOD_KEY = { '하루': 'day', '일주일': 'week', '한 달 이상': 'month' };
 
+    // 로딩 문구를 5초 간격으로 넘기고 마지막 문구는 끝까지 고정 반복한다.
+    // 실제 LLM 호출은 20~40초가 걸리는데 예전처럼 시간 기반(400ms×4)으로
+    // 끝내버리면 응답 전에 로딩이 먼저 끝나버린다 — 여기서는 호출이 끝날
+    // 때(stop() 호출) 로딩도 같이 끝난다.
+    function startLoadingMessages(ctx, period) {
+      const el = document.getElementById('loading-step-text');
+      const msgs = [
+        `#${ctx.keyword}의 검색어 데이터 및 SNS 반응을 읽고 있어요...`,
+        `'${ctx.platform}' 형태에 맞는 서비스 구조를 설계하고 있어요...`,
+        `'${ctx.type}' 유형으로 아이디어 3개를 서로 다르게 뽑고 있어요...`,
+        `화면 구성도(IA)와 MVP 기능을 정리하고 있어요...`,
+        `'${period}' 완성도에 맞는 바이브코딩 프롬프트를 쓰고 있어요...`,
+        `마무리하고 있어요. 조금만 기다려 주세요...`
+      ];
+      const started = Date.now();
+      let i = 0;
+      if (el) el.innerText = msgs[0];
+      const timer = setInterval(() => {
+        i = Math.min(i + 1, msgs.length - 1);
+        if (el) el.innerText = msgs[i];
+      }, 5000);
+      return async function stop() {
+        clearInterval(timer);
+        const elapsed = Date.now() - started;
+        // 캐시 히트처럼 너무 빨리 끝나면 로딩 화면이 번쩍이므로 최소 노출.
+        if (elapsed < 1200) await new Promise(r => setTimeout(r, 1200 - elapsed));
+      };
+    }
+
+    // 서버 응답(snake_case)을 화면이 쓰는 camelCase로 변환. toCardView()와
+    // 같은 자리, 같은 역할이다. period는 서버가 준 prompts 중 어느 걸
+    // idea.prompt(현재 화면에 바로 쓰는 값)로 쓸지 고른다.
+    function toIdeaView(x, periodKey) {
+      return {
+        id: x.id, name: x.name, shortName: x.short_name, approach: x.approach,
+        slogan: x.slogan, target: x.target, problem: x.problem, solution: x.solution,
+        architecture: x.architecture, diff: x.diff,
+        mvpFeatures: x.mvp_features, futureFeatures: x.future_features,
+        stack: x.stack, aiTools: x.ai_tools || [], ia: x.ia,
+        prompts: x.prompts || null,
+        prompt: x.prompt || (x.prompts ? x.prompts[periodKey] : '')
+      };
+    }
+
+    async function executeIdeaGeneration() {
+      const btn = document.querySelector('.figma-btn-generate');
+      if (btn) btn.disabled = true;   // 생성 중 연타 방지
+
+      navigateTo('result');
       document.getElementById('result-loading-screen').style.display = 'block';
       document.getElementById('result-main-screen').style.display = 'none';
 
-      const loadingTexts = [
-        `#${selectedKeyword.name}의 검색어 데이터 및 SNS 반응 분석 중...`,
-        `'${configSettings.type}' 유형에 맞춰 3가지 독창적 시스템 구조 설계 중...`,
-        `'${configSettings.period}' 개발 기간에 맞는 서비스 정보구조(IA)와 MVP 기능 명세 작성 중...`,
-        `Cursor 및 Claude에 바로 넣을 수 있는 바이브코딩 프롬프트 생성 완료!`
-      ];
+      const ctx = { keyword: selectedKeyword.name, platform: configSettings.platform, type: configSettings.type };
+      const period = configSettings.period;
+      const stopLoading = startLoadingMessages(ctx, period);
 
-      let step = 0;
-      const interval = setInterval(() => {
-        step++;
-        if (step < loadingTexts.length) {
-          document.getElementById('loading-step-text').innerText = loadingTexts[step];
-        } else {
-          clearInterval(interval);
-          finishIdeaGeneration();
+      try {
+        if (!['http:', 'https:'].includes(location.protocol)) {
+          throw new Error('file:// 에서는 서버 API를 부를 수 없습니다.');
         }
-      }, 400);
+        const ac = new AbortController();
+        const timeoutId = setTimeout(() => ac.abort(), 90000);
+        const res = await fetch(`/api/trends/${selectedKeyword.id}/ideas`, {
+          method: 'POST',
+          signal: ac.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform: ctx.platform, type: ctx.type, period, count: 3
+          })
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error('아이디어 생성 요청 실패: ' + res.status);
+        const data = await res.json();
+
+        await stopLoading();
+        const periodKey = PERIOD_KEY[period] || 'day';
+        const ideas = data.ideas.map(x => toIdeaView(x, periodKey));
+        renderIdeaResults(ideas, { source: data.source });
+      } catch (err) {
+        // file:// 로 열었을 때, 서버가 꺼져 있을 때, 네트워크 오류일 때
+        // 전부 여기로 모여 기존 하드코딩 예시로 대체한다 — 화면이 비지 않는다.
+        console.warn('[아이디어 생성] API 호출 실패, 내장 예시로 대체합니다:', err.message);
+        await stopLoading();
+        const drafts = buildFallbackIdeaDrafts(ctx);
+        const ideas = drafts.map(d => ({
+          ...d, aiTools: [], prompt: buildPromptForPeriod(d, ctx, period)
+        }));
+        renderIdeaResults(ideas, { source: 'fallback' });
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     /* =========================================================
@@ -5114,12 +5186,13 @@ ${mvpSection}
 질문하지 말고 지금 바로 폴더 구조와 전체 컴포넌트 코드 작성을 시작해 주세요. 비개발자가 그대로 실행만 하면 되는 완성본으로 주세요.`;
     }
 
-    function finishIdeaGeneration() {
-      const kw = selectedKeyword.name;
-      const p = configSettings.platform;
-      const t = configSettings.type;
-      const period = configSettings.period;
-      const ctx = { keyword: kw, platform: p, type: t };
+    // 서버 API를 못 부를 때(file:// 로 열었을 때, 서버 미기동, 네트워크
+    // 오류)만 쓰는 오프라인 폴백. 원래 finishIdeaGeneration() 안에 있던
+    // 하드코딩 3개를 그대로 옮긴 것 — 키워드 이름만 치환되고 내용은
+    // 고정이다. 서버가 살아있으면 이 함수는 호출되지 않는다.
+    function buildFallbackIdeaDrafts(ctx) {
+      const kw = ctx.keyword;
+      const p = ctx.platform;
 
       const ideaDrafts = [
         {
@@ -5253,16 +5326,23 @@ ${mvpSection}
         }
       ];
 
-      generatedIdeas = ideaDrafts.map(idea => ({
-        ...idea,
-        prompt: buildPromptForPeriod(idea, ctx, period)
-      }));
+      return ideaDrafts;
+    }
+
+    // 생성된 아이디어(서버 응답이든 폴백이든)를 결과 화면에 렌더한다.
+    function renderIdeaResults(ideas, meta) {
+      generatedIdeas = ideas;
+      activeIdeaIndex = 0;
 
       document.getElementById('result-loading-screen').style.display = 'none';
       document.getElementById('result-main-screen').style.display = 'block';
 
       const kwEl = document.getElementById('result-keyword-name');
-      if (kwEl) kwEl.innerText = `#${kw}`;
+      if (kwEl) kwEl.innerText = `#${selectedKeyword.name}`;
+
+      if (meta && meta.source === 'fallback') {
+        showToast('예시 아이디어입니다 (AI 서버에 연결하지 못했어요)');
+      }
 
       renderIdeasTabs();
       showIdeaDetail(0);
@@ -5357,8 +5437,10 @@ ${mvpSection}
             <div class="figma-detail-section">
               <div class="figma-section-title">추천 AI 툴</div>
               <div class="figma-content-box" style="min-height: 80px;">
-                <span class="figma-ai-tool-pill">Cursor / Claude 3.5 Sonnet</span>
-                <span class="figma-ai-tool-pill">v0 by Vercel</span>
+                ${(idea.aiTools && idea.aiTools.length ? idea.aiTools : [
+                    { name: 'Cursor', role: '코드 편집·리팩터링 전반' },
+                    { name: 'v0 by Vercel', role: '화면 UI 초안 뽑기' }
+                  ]).map(t => `<span class="figma-ai-tool-pill" title="${t.role || ''}">${t.name}</span>`).join('')}
                 <p style="font-size: 13px; color: #64748B; margin-top: 6px;">
                   <strong>스택:</strong> ${idea.stack}
                 </p>

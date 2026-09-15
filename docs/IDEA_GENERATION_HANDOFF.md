@@ -1,7 +1,12 @@
 # 아이디어 생성 팀원에게 — IA·프롬프트 3종 생성 규칙
 
-**작성: 박민규** · 대상: 트렌드 키워드 → 아이디어 5개 생성을 맡는 팀원 (④, 담당자 미상)
-**소비처**: `Final/Frontend/v1-trend-incubator.html`의 `renderIAFlow()` / 프롬프트 탭 UI (사양은 [IDEA_DETAIL_SPEC.md](IDEA_DETAIL_SPEC.md))
+**작성: 박민규** · 대상: 트렌드 키워드 → 아이디어 생성을 맡는 팀원 (④)
+**소비처**: `Final/Frontend/v1-trend-incubator.html`의 `renderIAFlow()` / 프롬프트 결과 화면 (사양은 [IDEA_DETAIL_SPEC.md](IDEA_DETAIL_SPEC.md))
+**축 정의(플랫폼×유형 9조합이 무엇을 바꾸는지)**: [아이디어_생성_설계.md](아이디어_생성_설계.md)
+
+> **구현 완료 (v1)**: 아래 두 규칙은 `Final/Backend/app/agents/idea_agent.py` +
+> `app/ideas/`에 구현되어 `POST /api/trends/{keyword_id}/ideas`로 나갑니다.
+> 개수는 3개로 고정했습니다(문서 원안 5개 대신 — 현재 프론트 UI·목업과 맞춤).
 
 ## 왜 이 문서가 필요한가
 
@@ -145,10 +150,24 @@ IA가 달라야 한다.
   · ...
 ```
 
-## 지금 프론트에 있는 임시 구현과의 관계
+## 실제 구현과의 관계 (v1, 갱신됨)
 
-지금 `v1-trend-incubator.html`의 `buildPrompts()`는 이 메타 프롬프트를 아직 LLM으로 호출하지 않고, 같은 규칙을 **JS 문자열 템플릿으로 결정적으로 흉내 낸 것**입니다(참고: [IDEA_DETAIL_SPEC.md](IDEA_DETAIL_SPEC.md) 3절). 실제 생성이 붙으면:
+이 절은 원래 "프론트 임시 구현"을 설명했지만 실제 구현 후 갱신합니다.
 
-- 규칙 1(IA)은 아이디어 생성 프롬프트 자체에 포함되어, 생성된 아이디어마다 `ia` 필드로 나옵니다.
-- 규칙 2(프롬프트 3종)는 아이디어가 만들어진 뒤 별도 LLM 호출로 돌리거나, 같은 호출 안에 `prompts` 필드로 함께 받아도 됩니다 — 어느 쪽이든 이 문서의 규칙만 지키면 프론트는 그대로 받아씁니다.
-- 두 경우 다 결과가 위 "아이디어 하나가 가져야 할 필드" 스키마를 만족하면, 프론트 수정은 필요 없습니다.
+- **규칙 1(IA)** 은 `app/prompts/idea_prompts.py`의 `build_idea_prompt()`가 이
+  블록을 그대로 프롬프트에 넣고, LLM이 만든 아이디어마다 `ia` 필드로 나옵니다.
+  플랫폼별 depth1 개수 제약(`ia_shape`)은 `app/ideas/axes.py`에 있습니다.
+- **규칙 2(프롬프트 3종)** 는 **LLM을 다시 부르지 않습니다.** 프론트
+  `v1-trend-incubator.html:buildPromptForPeriod()`(예전 `buildPrompts()`에서
+  이름이 바뀌었습니다)가 이미 이 문서 규칙(시간 진행 표현 금지 등)을 만족하는
+  검증된 결정적 템플릿이라, `app/prompts/idea_prompts.py`의
+  `build_period_prompt()`로 그대로 파이썬 이식했습니다. 응답에 `prompts.day`
+  /`prompts.week`/`prompts.month`가 전부 담겨 나가므로, 프론트에서 기간 칩을
+  바꿔도 재요청이 필요 없습니다.
+- **주의**: 화면 기간 칩 라벨(`하루`/`일주일`/`한 달 이상`)과 이 문서의 표기
+  (`1일`/`일주일`/`한달`)가 다릅니다 — 내부 키는 `day`/`week`/`month`로
+  통일했고 양쪽 표기를 전부 별칭으로 받습니다. 자세한 표는
+  [아이디어_생성_설계.md](아이디어_생성_설계.md) 0절 참고.
+- 두 규칙 다 프론트 렌더 코드(`renderIAFlow`, `showIdeaDetail`)는 그대로
+  두었고, "추천 AI 툴" 섹션만 하드코딩 pill 2개를 `idea.aiTools[]` 바인딩으로
+  바꿨습니다(화이트리스트 카탈로그 — 4절 참고).
