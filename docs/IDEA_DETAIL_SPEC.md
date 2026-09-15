@@ -115,5 +115,5 @@ savedIdeas[i] = { name, slogan, keyword, prompts: {…3종…}, duration, date }
 ## 범위 밖
 
 - 키워드 상세 화면(검색 볼륨·차트·연관어) — 이미 구현돼 있고 이 문서의 대상 아님
-- 아이디어 5개 생성 로직 자체(현재 하드코딩 목업) — 실제 LLM 연동은 별도 작업. 연동 시 출력이 위 1절 `idea.ia` 스키마를 지켜야 한다
+- 아이디어 5개 생성 로직 자체(현재 하드코딩 목업) — 실제 LLM 연동은 별도 작업. 연동 시 출력이 위 1절 `idea.ia` 스키마를 지켜야 한다. IA·프롬프트 3종 생성 규칙을 아이디어 생성 담당자에게 넘기는 문서는 [IDEA_GENERATION_HANDOFF.md](IDEA_GENERATION_HANDOFF.md)
 - 백엔드 연동(`Final/Backend/`) — 이번 작업은 프로토타입 HTML 범위만
