@@ -10,7 +10,9 @@ FastAPI 진입점.
 """
 
 from app.api.routes import router
+from app.api.trend_routes import router as trend_router
 from fastapi import FastAPI
 
 app = FastAPI(title="유레카 API")
 app.include_router(router)
+app.include_router(trend_router)
