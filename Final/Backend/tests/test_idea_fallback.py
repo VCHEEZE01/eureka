@@ -3,7 +3,7 @@ import re
 
 from app.ideas import axes, fallback, validate
 
-ALL_COMBOS = [(p, t) for p in ("web", "mobile", "desktop") for t in ("utility", "fun", "business")]
+ALL_COMBOS = [(p, t) for p in ("web", "mobile") for t in ("utility", "fun", "business")]
 
 
 def _build(p: str, t: str):
@@ -21,12 +21,12 @@ def test_fallback_passes_validation_for_all_nine_combos():
 
 def test_nine_combos_produce_distinct_stack():
     stacks = {(p, t): _build(p, t)[1][0].stack for p, t in ALL_COMBOS}
-    assert len(set(stacks.values())) == 9, stacks
+    assert len(set(stacks.values())) == 6, stacks
 
 
 def test_nine_combos_produce_distinct_ai_tools():
     tools = {(p, t): tuple(x.id for x in _build(p, t)[1][0].ai_tools) for p, t in ALL_COMBOS}
-    assert len(set(tools.values())) == 9, tools
+    assert len(set(tools.values())) == 6, tools
 
 
 def test_ia_depth1_count_respects_platform_shape():
@@ -47,7 +47,7 @@ def _words(idea) -> set[str]:
 
 def test_mvp_and_problem_text_differ_across_combos_within_same_platform():
     """같은 플랫폼 안에서 유형만 바뀌어도 텍스트가 과도하게 겹치지 않는지."""
-    for platform in ("web", "mobile", "desktop"):
+    for platform in ("web", "mobile"):
         combos = [(platform, t) for t in ("utility", "fun", "business")]
         idea_sets = {t: _build(platform, t)[1][0] for _, t in combos}
         for (t1, i1), (t2, i2) in itertools.combinations(idea_sets.items(), 2):

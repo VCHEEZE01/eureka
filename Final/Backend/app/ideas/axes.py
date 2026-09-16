@@ -9,12 +9,15 @@
   모든 분기는 아래 테이블 조회로 끝낸다 — 새 축 값이 추가돼도
   이 파일에 한 줄만 늘리면 된다.
 
-프론트(v1-trend-incubator.html)의 칩 라벨:
-  platform: "웹(Web MVP)" / "모바일 앱" / "데스크탑 웹"
+프론트(v1-trend-incubator.html, V1.3 디자인)의 칩 라벨:
+  platform: "웹(Web)" / "모바일 앱(App)"
   type:     "실용(편의)" / "재미" / "수익(비즈니스)"
   period:   "하루" / "일주일" / "한 달 이상"
 문서(docs/IDEA_GENERATION_HANDOFF.md)의 기간 라벨은 "1일/일주일/한달"로
 다르다 — 내부 키(day/week/month)로 통일하고 둘 다 별칭으로 받는다.
+
+★ 2026-09-17: V1.3 디자인에서 플랫폼이 웹/모바일앱 2개로 줄었다
+  (데스크탑 웹 제거). 9조합 → 6조합.
 """
 
 from dataclasses import dataclass
@@ -23,9 +26,8 @@ from typing import Optional
 # ── 별칭 정규화 ──────────────────────────────────
 
 PLATFORM_ALIASES: dict[str, str] = {
-    "웹(web mvp)": "web", "웹": "web", "web": "web", "web mvp": "web",
-    "모바일 앱": "mobile", "모바일앱": "mobile", "모바일": "mobile", "mobile": "mobile",
-    "데스크탑 웹": "desktop", "데스크톱 웹": "desktop", "데스크탑": "desktop", "desktop": "desktop",
+    "웹(web)": "web", "웹(web mvp)": "web", "웹": "web", "web": "web", "web mvp": "web",
+    "모바일 앱(app)": "mobile", "모바일 앱": "mobile", "모바일앱": "mobile", "모바일": "mobile", "mobile": "mobile",
 }
 
 TYPE_ALIASES: dict[str, str] = {
@@ -65,7 +67,7 @@ def normalize_period(raw: str) -> str:
 
 PLATFORM_SPEC: dict[str, dict] = {
     "web": {
-        "label": "웹(Web MVP)",
+        "label": "웹(Web)",
         "form_directive": (
             "브라우저 주소 하나로 바로 열리는 반응형 단일 웹앱을 전제하라. "
             "설치·로그인 없이 첫 화면에서 핵심 가치를 바로 보여주고, 결과를 "
@@ -90,7 +92,7 @@ PLATFORM_SPEC: dict[str, dict] = {
         ),
     },
     "mobile": {
-        "label": "모바일 앱",
+        "label": "모바일 앱(App)",
         "form_directive": (
             "손에 들고 쓰는 앱을 전제하라. 한 손 엄지 조작, 1~2분짜리 짧은 "
             "세션 안에 한 가지 일만 끝내는 흐름이어야 한다. 카메라·위치·푸시·"
@@ -112,30 +114,6 @@ PLATFORM_SPEC: dict[str, dict] = {
         ),
         "target_directive": (
             "이동 중·매장 안·현장처럼 '어디서 꺼내 쓰는지'를 반드시 포함해서 서술하라."
-        ),
-    },
-    "desktop": {
-        "label": "데스크탑 웹",
-        "form_directive": (
-            "큰 화면에서 오래 붙잡고 쓰는 작업 도구를 전제하라. 여러 항목을 "
-            "한 화면에서 비교·편집·정리하는 데서 가치가 나와야 한다. 키보드 "
-            "단축키, 다중 선택, 결과 내보내기(CSV 또는 이미지)를 전제로 설계하라."
-        ),
-        "ia_directive": (
-            "좌측 사이드바 + 넓은 메인 작업영역을 전제하라. depth1은 2~3개로 "
-            "적게 두고 대신 각 depth1의 depth2를 2~3개로 채워 깊이를 만들어라. "
-            "스와이프·길게누르기 같은 모바일 전용 제스처 기능을 넣지 마라."
-        ),
-        "ia_shape": {"depth1_min": 2, "depth1_max": 3},
-        "stack_default": "Next.js 14, TypeScript, TailwindCSS, TanStack Table, Supabase",
-        "ai_tools": ["cursor", "claude_code", "supabase"],
-        "mvp_directive": (
-            "여러 항목을 한 번에 다루는 기능(필터·정렬·일괄 선택)을 포함하고, "
-            "내보내기 1종을 반드시 넣어라. 단건 처리만 있는 기능 구성은 금지."
-        ),
-        "target_directive": (
-            "같은 작업을 반복하는 실무자·운영자·크리에이터로 서술하고, "
-            "직무와 반복 주기를 함께 적어라."
         ),
     },
 }
@@ -193,7 +171,7 @@ TYPE_SPEC: dict[str, dict] = {
     },
 }
 
-# ── 9조합 전용 메모 ──────────────────────────────
+# ── 6조합 전용 메모 ──────────────────────────────
 # 두 축을 곱하기만 하면 결과가 비슷해질 위험이 있다(특히 '재미'는 플랫폼
 # 영향을 덜 받는다). 조합마다 이 한 줄을 프롬프트 맨 앞에 박아 강제한다.
 
@@ -204,9 +182,6 @@ COMBO_NOTES: dict[tuple[str, str], str] = {
     ("mobile", "utility"): "현장에서 꺼내 3초 만에 기록하고 닫는 앱. 나중에 몰아서 정리하는 화면이 따로 있다.",
     ("mobile", "fun"): "카메라나 위치로 지금·여기를 찍어 만드는 놀이. 만든 결과는 스토리 비율 카드로 나간다.",
     ("mobile", "business"): "현장에서 바로 주문·예약·정산이 일어나는 접점. 알림이 매출로 직결된다.",
-    ("desktop", "utility"): "흩어진 자료를 한 화면에 모아 일괄 정리하고 내보내는 작업대. 단축키로 빨라진다.",
-    ("desktop", "fun"): "혼자 오래 만지작거리며 만드는 편집·조합 놀이터. 만든 것을 파일로 뽑아 자랑한다.",
-    ("desktop", "business"): "실무자가 매일 여는 운영 대시보드. 숫자를 보고 결정을 내리고 그 결정이 기록된다.",
 }
 
 # ── 추천 AI 툴 카탈로그 (화이트리스트) ───────────
@@ -217,31 +192,31 @@ COMBO_NOTES: dict[tuple[str, str], str] = {
 
 AI_TOOL_CATALOG: dict[str, dict] = {
     "cursor": {"name": "Cursor", "role": "코드 편집·리팩터링 전반",
-               "platforms": ["web", "mobile", "desktop"], "types": ["utility", "fun", "business"]},
+               "platforms": ["web", "mobile"], "types": ["utility", "fun", "business"]},
     "claude_code": {"name": "Claude Code", "role": "터미널에서 여러 파일 한번에",
-                     "platforms": ["web", "mobile", "desktop"], "types": ["utility", "fun", "business"]},
+                     "platforms": ["web", "mobile"], "types": ["utility", "fun", "business"]},
     "v0": {"name": "v0 by Vercel", "role": "화면 UI 초안 뽑기",
-           "platforms": ["web", "desktop"], "types": ["utility", "fun", "business"]},
+           "platforms": ["web"], "types": ["utility", "fun", "business"]},
     "lovable": {"name": "Lovable", "role": "웹앱 통째로 만들기",
                 "platforms": ["web"], "types": ["utility", "business"]},
     "bolt": {"name": "Bolt.new", "role": "브라우저에서 바로 실행",
              "platforms": ["web"], "types": ["fun"]},
     "copilot": {"name": "GitHub Copilot", "role": "에디터 안 자동완성",
-                "platforms": ["web", "mobile", "desktop"], "types": ["utility", "business"]},
+                "platforms": ["web", "mobile"], "types": ["utility", "business"]},
     "expo": {"name": "Expo", "role": "앱 빌드·실기기 미리보기",
              "platforms": ["mobile"], "types": ["utility", "fun", "business"]},
     "supabase": {"name": "Supabase", "role": "DB·인증 바로 붙이기",
-                 "platforms": ["web", "mobile", "desktop"], "types": ["utility", "business"]},
+                 "platforms": ["web", "mobile"], "types": ["utility", "business"]},
     "figma_make": {"name": "Figma Make", "role": "디자인 시안에서 코드로",
-                   "platforms": ["web", "mobile", "desktop"], "types": ["fun", "business"]},
+                   "platforms": ["web", "mobile"], "types": ["fun", "business"]},
     "midjourney": {"name": "Midjourney", "role": "카드·썸네일 이미지 생성",
-                   "platforms": ["web", "mobile", "desktop"], "types": ["fun"]},
+                   "platforms": ["web", "mobile"], "types": ["fun"]},
 }
 
-# 9조합 각각에 어떤 3개를 줄지 직접 고른 표다. pick_ai_tools()를 순수
+# 6조합 각각에 어떤 3개를 줄지 직접 고른 표다. pick_ai_tools()를 순수
 # 알고리즘(플랫폼 기본 세트 + 유형 보너스)으로 짜면 플랫폼별 앞 2개가
-# 겹쳐 9조합 중 다수가 같은 결과를 내는 문제가 있었다(테스트로 발견).
-# 축이 2개뿐이라 억지로 알고리즘화하는 것보다 표로 못박는 쪽이 "9조합이
+# 겹쳐 조합 중 다수가 같은 결과를 내는 문제가 있었다(테스트로 발견).
+# 축이 2개뿐이라 억지로 알고리즘화하는 것보다 표로 못박는 쪽이 "조합이
 # 실제로 갈린다"를 코드로 보장하기 쉽다 — COMBO_NOTES와 같은 이유.
 AI_TOOL_COMBO: dict[tuple[str, str], list[str]] = {
     ("web", "utility"): ["v0", "cursor", "copilot"],
@@ -250,9 +225,6 @@ AI_TOOL_COMBO: dict[tuple[str, str], list[str]] = {
     ("mobile", "utility"): ["cursor", "expo", "copilot"],
     ("mobile", "fun"): ["cursor", "expo", "midjourney"],
     ("mobile", "business"): ["cursor", "expo", "supabase"],
-    ("desktop", "utility"): ["cursor", "supabase", "copilot"],
-    ("desktop", "fun"): ["cursor", "claude_code", "midjourney"],
-    ("desktop", "business"): ["cursor", "supabase", "v0"],
 }
 
 

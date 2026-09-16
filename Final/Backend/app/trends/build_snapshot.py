@@ -1,15 +1,22 @@
 """
-⑥ 검수·게시 — fixtures/rising_keywords_36.json(고정 키워드 데이터)을
+⑥ 검수·게시 — fixtures/rising_keywords_28.json(고정 키워드 데이터)을
 KeywordReport 스키마의 스냅샷으로 굳혀 data/trends/latest_snapshot.json에 쓴다.
 
 실행:
     python -m app.trends.build_snapshot
 
 지금은 "① 후보 모으기 ② 숫자 모으기"가 없다 — fixtures 파일 자체가
-그 결과물(실사용자 조사로 만든 36개 키워드)이라고 보고, 이 스크립트는
-③ 계산 ④ 나누기 ⑤(글쓰기 생략, 이미 써 있음) ⑥ 게시만 한다.
+그 결과물(실사용자 조사로 만든 28개 키워드, 프론트 V1.3 디자인의
+RISING_KEYWORDS와 동일)이라고 보고, 이 스크립트는 ③ 계산 ④ 나누기
+⑤(글쓰기 생략, 이미 써 있음) ⑥ 게시만 한다.
 실제 배치(매일 06:00, app/trends/collect.py)가 붙으면 이 스크립트는
 그 배치의 마지막 단계로 흡수된다.
+
+★ 2026-09-17: 이전 rising_keywords_36.json(36개)에서 프론트 V1.3
+  디자인의 RISING_KEYWORDS(28개)로 교체했다 — 프론트 키워드 id와
+  백엔드 스냅샷 id가 어긋나면 같은 id로 다른 키워드가 응답되는
+  문제가 있었다. 두 raw 필드명이 우연히 동일해서(_to_report 참고)
+  변환 없이 그대로 옮겨졌다.
 """
 
 import json
@@ -20,7 +27,7 @@ from app.trends.classify import rank_key, tab_for_status
 from app.trends.metrics import parse_int, parse_rate, trend_strength
 
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
-FIXTURES_PATH = _BACKEND_ROOT / "app" / "trends" / "fixtures" / "rising_keywords_36.json"
+FIXTURES_PATH = _BACKEND_ROOT / "app" / "trends" / "fixtures" / "rising_keywords_28.json"
 SNAPSHOT_DIR = _BACKEND_ROOT / "data" / "trends"
 LATEST_PATH = SNAPSHOT_DIR / "latest_snapshot.json"
 

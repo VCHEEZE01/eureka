@@ -56,12 +56,12 @@ def test_count_out_of_range_is_400(client):
 
 
 def test_get_cached_ideas_without_prior_post_is_404(client):
-    r = client.get("/api/trends/r1/ideas", params={"platform": "데스크탑 웹", "type": "수익(비즈니스)"})
+    r = client.get("/api/trends/r1/ideas", params={"platform": "모바일 앱(App)", "type": "수익(비즈니스)"})
     assert r.status_code == 404
 
 
 def test_get_cached_ideas_after_post_returns_200(client):
-    client.post("/api/trends/r1/ideas", json={"platform": "데스크탑 웹", "type": "수익(비즈니스)"})
-    r = client.get("/api/trends/r1/ideas", params={"platform": "데스크탑 웹", "type": "수익(비즈니스)"})
+    client.post("/api/trends/r1/ideas", json={"platform": "모바일 앱(App)", "type": "수익(비즈니스)"})
+    r = client.get("/api/trends/r1/ideas", params={"platform": "모바일 앱(App)", "type": "수익(비즈니스)"})
     assert r.status_code == 200
     assert r.json()["source"] == "cache"
