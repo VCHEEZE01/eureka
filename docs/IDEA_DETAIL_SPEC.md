@@ -8,10 +8,11 @@
 
 | 블록 | 함수 | 입력 | 성격 |
 |---|---|---|---|
-| 서비스 정보구조도 (IA) | `renderIAFlow(idea.ia, idea.shortName)` | `idea.ia` (목업 고정값) | 화면 구조 명세 — 좌→우 계층 |
-| 바이브코딩 프롬프트 3종 | `buildPrompts(idea, ctx)` | `idea.*` 전체 + `configSettings` | LLM에 그대로 붙여넣는 완성 텍스트 |
+| 서비스 정보구조도 (IA) | ~~`renderIAFlow(idea.ia, idea.shortName)`~~ (화면 렌더 없음 — 2026-09 개편으로 폐기) | `idea.ia` | **프롬프트 내부 전용.** 화면에는 안 뜨지만 `idea.ia`는 삭제되지 않았고 아래 3절 프롬프트가 계속 소비한다 |
+| 바이브코딩 프롬프트 | `buildPromptForPeriod(idea, ctx, period)` (프론트) / `build_period_prompt()` (백엔드, 1:1 이식) | `idea.*` 전체 + `configSettings` | LLM에 그대로 붙여넣는 완성 텍스트 |
+| MVP 편집 · 재생성 | `renderMvpSection()` / `POST /api/trends/{id}/ideas/prompt` | 사용자가 고친 `idea.mvpFeatures` | 5절 참고 |
 
-현재는 `generatedIdeas`가 하드코딩된 목업이다. 실제 아이디어 생성 LLM이 붙으면, 그 출력이 아래 `idea.*` 스키마를 그대로 채워야 이 두 블록이 수정 없이 동작한다.
+이제 `generatedIdeas`는 실제 백엔드 아이디어 생성 에이전트(`app/agents/idea_agent.py`)의 출력이다(2026-09-15, 커밋 `0e681dc5`) — "현재는 하드코딩 목업"이라는 예전 서술은 낡았다. 다만 서버 미기동·`file://`로 열었을 때의 오프라인 폴백은 여전히 프론트 내장 목업(`buildFallbackIdeaDrafts`)을 쓴다.
 
 ## 1. `idea.ia` 스키마
 
@@ -27,7 +28,14 @@ idea.ia: Array<{
 
 **가변 규칙**: `depth1` 개수, 각 `depth2` 개수 모두 자유롭게 늘거나 준다. 렌더러와 프롬프트 생성기 어느 쪽도 개수를 하드코딩하지 않는다 — `.map()`으로 순회한다. 현재 5개 아이디어 전부 `depth1` 3개 · 각 `depth2` 2개로 맞춰져 있지만 이는 데이터의 우연한 형태지 강제 규칙이 아니다.
 
-## 2. IA 렌더 — `renderIAFlow`
+## 2. (폐기) IA 화면 렌더 — `renderIAFlow`
+
+> **2026-09-15 개편으로 아이디어 상세 화면에서 IA 블록을 제거했다.** `idea.ia`는
+> 삭제된 것이 아니라 **프롬프트 전용 내부 데이터로 남는다** — 프론트
+> `formatIAOutline()` / 백엔드 `_format_ia_outline()`이 계속 소비해서
+> 프롬프트 본문의 "# 2. 시스템 아키텍처 및 서비스 정보구조(IA)" 절을 채운다
+> (3절 참고). 아래 DOM·CSS 명세는 이력 보존용이며, 현재 코드에 `.ia-flow-grid`
+> 등 해당 요소는 전혀 없다(`renderIAFlow()` 함수 자체도 삭제됨).
 
 **형태: 좌(서비스) → 우(2Depth) 가로 플로우.** 세로 카드 3장이 나란히 있던 이전 버전(`grid-template-columns: repeat(3,1fr)`)은 계층이 안 보인다는 문제가 있어 폐기했다.
 
@@ -85,19 +93,68 @@ buildPrompts(idea: {
 
 일주일 프롬프트가 AI에게 **먼저 되묻게** 만드는 것은 유지한다(타깃 사용 맥락 / 우선 화면 / 데이터 출처 / 디자인 톤) — 사용자가 답하면서 아이디어가 자기 상황에 맞게 구체화되는 게 이 등급의 가치이기 때문이다. 이 질문 유도 문구를 지우면 1일 프롬프트와 차별점이 없어진다. 하지만 질문 이후의 구현 지시는 "Day 단위 진행"이 아니라 "이 완성도로 만들어라"는 스펙으로 준다.
 
-## 4. UI — 프롬프트 탭
+## 4. UI — 기간 표시
 
-`activePromptTab`(모듈 전역, 기본값 = 설정 화면에서 고른 기간)으로 표시 중인 프롬프트를 추적한다. `switchPromptTab(index, duration)`이 값을 바꾸고 `showIdeaDetail(index)`를 다시 그린다. 복사 버튼(`copyPromptToClipboard`)은 항상 `idea.prompts[activePromptTab]`을 복사한다 — 탭과 복사 내용이 어긋나면 버그다.
+> 이 절은 낡았다. 실제 코드에는 `activePromptTab`/`switchPromptTab`/탭 3개
+> UI가 없다 — 커밋 `aaff7b75`("가로형 IA · 기간별 단일 프롬프트")가 탭
+> 방식을 걷어내고, 설정 화면에서 고른 기간(`configSettings.period`) 하나만
+> `.figma-prompt-period-tag`로 표시하는 방식으로 이미 바뀌었다(문서 미반영
+> 상태로 남아 있었음). 응답에는 `prompts.day`/`week`/`month`가 전부 담기지만
+> 화면에는 그중 현재 선택된 기간 하나만 보여준다.
 
-## 5. 보관함 저장 형식
+## 5. MVP 편집 · 프롬프트 재생성
+
+2026-09-16 개편(가장 최근). "MVP 핵심 기능" 섹션 제목 옆에 [수정] 버튼을 추가해
+사용자가 항목을 직접 고칠 수 있게 했고, IA 화면 블록을 없애면서 생긴 자리에
+프롬프트가 바로 오도록 했다.
+
+**편집 상태 모델** (`v1-trend-incubator.html`):
+- `mvpEditState = { index, draft: string[] } | null` — 편집 중인 아이디어의
+  임시 값. `showIdeaDetail()`이 카드를 `innerHTML`로 통째로 다시 그리는
+  구조라, 입력값의 원본을 DOM이 아니라 이 전역에 둔다(재렌더돼도 안전).
+- `idea.promptStale` — MVP를 고쳤지만 프롬프트는 아직 재생성 전이라는 표시.
+  섹션 제목 옆과 프롬프트 헤더 양쪽에 배지로 뜬다.
+
+**개수 규칙이 백엔드 생성 규칙(3~5개)과 다른 이유**: `app/ideas/validate.py`의
+3~5개 강제는 *LLM 출력 품질 가드*다. 사람이 일부러 고친 값에 같은 규칙을
+걸면 "화면엔 이미 떠 있는데 저장이 안 되는" 모순이 생긴다. 그래서 편집
+UI는 1~8개만 허용하고, 3~5 범위를 벗어나면 차단 대신 힌트 문구만 보여준다.
+
+**`POST /api/trends/{keyword_id}/ideas/prompt`** — 프롬프트만 재조립한다
+(`Final/Backend/app/api/idea_routes.py`). `IdeaSpec`을 요청 바디로 그대로
+재사용하고, `build_period_prompt()`를 다시 호출할 뿐 **LLM을 부르지 않는다**
+(순수 문자열 조립이라 비용이 0). `idea.ia`는 편집 대상이 아니지만 요청에
+그대로 실려가야 한다 — 빠지면 프롬프트의 "# 2" 섹션이 비어버린다
+(`toIdeaSpec()`이 이 값을 채운다). **서버 캐시(`data/ideas/`)는 갱신하지
+않는다** — 캐시는 "LLM이 만든 원본"을 보관하는 자리이고, 여기서 만드는 건
+사용자의 개인 편집본이라 섞으면 같은 조합을 연 다른 사람이 남의 편집을
+받게 된다.
+
+프론트 호출도 서버 우선 + 오프라인 폴백이다. 서버가 안 되면(`file://`로
+열었을 때 등) `buildPromptForPeriod()`로 그대로 로컬 조립한다 — 아이디어
+생성 자체의 폴백 패턴(`executeIdeaGeneration()`)과 동일.
+
+## 6. 보관함 저장 형식
 
 ```ts
-savedIdeas[i] = { name, slogan, keyword, prompts: {…3종…}, duration, date }
+savedIdeas[i] = { name, slogan, keyword, mvpFeatures: string[], prompt, duration, date }
 ```
 
-**하위 호환**: 피보팅 전 형식(`{ prompt: string }`, `prompts` 없음)이 localStorage에 남아 있을 수 있다. `getSavedPrompts(item)`이 `item.prompts ?? (item.prompt ? {'1일': item.prompt} : {})`로 흡수한다 — 보관함 렌더·복사 로직 어디서든 `item.prompt`를 직접 읽지 말고 반드시 `getSavedPrompts()`를 거친다. 기간 탭은 `.saved-entry-card`마다 `savedPromptTabs[i]`로 독립적으로 추적된다.
+`mvpFeatures`는 2026-09-16에 추가됐다. **하위 호환**: 그 이전에 저장된
+localStorage 항목에는 `mvpFeatures`가 없다 — 보관함 카드 렌더는
+`Array.isArray(item.mvpFeatures) && item.mvpFeatures.length`로 가드하고,
+없으면 MVP 요약 없이 이름·슬로건만 보여준다.
 
-## 6. 검증 방법
+아이디어를 편집·재생성한 뒤에는 `syncSavedIdea(idea)`가 같은 name으로
+매칭되는 보관함 항목을 제자리에서 갱신한다 — 저장 후 편집하면 보관함에
+옛날 MVP·옛날 프롬프트가 남는 문제를 막는다. 보관함에 아직 없는
+아이디어를 편집만 해서는 저장되지 않는다(별표를 눌러야 저장된다).
+
+> `prompts`(3종 dict) 형식과 `getSavedPrompts()`/`switchSavedPromptTab`
+> 언급은 4절과 같은 이유로 낡았다 — 현재 코드는 단일 `prompt` 필드만
+> 저장한다.
+
+## 7. 검증 방법
 
 `Final/Frontend/v1-trend-incubator.html`은 서버 없이 더블클릭으로 열리는 단일 HTML이다(팀의 "서버 없이 열리는 단일 HTML 유지" 제약). Playwright로 headless 검증한 항목:
 

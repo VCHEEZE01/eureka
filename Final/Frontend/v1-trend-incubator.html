@@ -2733,172 +2733,89 @@
     }
 
     /* =========================================================
-       화면 구성도(IA) — 좌(서비스)→우(2Depth) 가로 플로우.
-       depth1 카드가 자기 depth2 자식들과 같은 높이로 stretch 되고,
-       커넥터 선이 28px column-gap의 정중앙(±14px)에서 만나도록
-       좌우 대칭으로 그린다. (세로 3열 와이어프레임 다이어그램 대체)
+       MVP 섹션 헤더(제목 + 수정/저장/재생성 버튼)와 인라인 편집 UI.
+       예전엔 이 아래에 화면 구성도(IA) 렌더 CSS가 있었다 — IA는
+       프롬프트 본문에는 그대로 남고 화면 렌더만 없앴다(2026-09 개편,
+       docs/IDEA_DETAIL_SPEC.md 2절 참고).
        ========================================================= */
-    .figma-ia-box {
-      width: 100%;
-      background: #FAFAFA;
-      border-radius: 15px;
-      padding: 24px;
-      box-sizing: border-box;
-      overflow-x: auto;
-    }
-
-    .ia-flow-grid {
+    .figma-section-head {
       display: flex;
-      align-items: stretch;
-      gap: 28px;
-      min-width: 560px;
-    }
-
-    .ia-groups {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 16px;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .ia-group {
-      display: flex;
-      align-items: stretch;
-      gap: 28px;
-    }
-
-    .ia-depth2-col {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 10px;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .ia-node {
-      position: relative;
-      background: #FFFFFF;
-      border: 1.5px solid #E0E7FF;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-    }
-
-    /* 커넥터: 자기 오른쪽 끝(트렁크, 다음 depth 전체를 잇는 세로선)과
-       자기 왼쪽 끝(스텁, 부모 트렁크까지 이어붙이는 짧은 가로선). */
-    .ia-node.has-children::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      right: -14px;
-      width: 2px;
-      background: #C7D2FE;
-    }
-
-    .ia-node.has-parent::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: -14px;
-      width: 14px;
-      height: 2px;
-      background: #C7D2FE;
-    }
-
-    .ia-depth0 {
-      flex: none;
-      width: 152px;
-      padding: 16px 14px;
-      display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 6px;
-      text-align: center;
-      background: #7C3AED;
-      border-color: #7C3AED;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
     }
+    .figma-section-head-left { display: flex; align-items: center; gap: 8px; }
+    .figma-section-actions { display: flex; align-items: center; gap: 8px; }
 
-    .ia-depth1 {
-      flex: none;
-      width: 190px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 6px;
-      background: #FAFAFE;
-    }
-
-    .ia-depth2 {
-      flex: 1;
-      min-width: 0;
-      padding: 10px 12px;
-      background: #F8FAFC;
-      border-left: 3px solid #7C3AED;
-    }
-
-    .ia-node-badge {
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-family: 'Inter', sans-serif;
-      width: fit-content;
-      background: #7C3AED;
-      color: #FFFFFF;
-    }
-
-    .ia-depth0 .ia-node-badge {
-      background: rgba(255, 255, 255, 0.22);
-      color: #FFFFFF;
-    }
-
-    .ia-node-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #1E293B;
-    }
-
-    .ia-depth0 .ia-node-title {
-      color: #FFFFFF;
-      font-size: 15px;
-    }
-
-    .ia-sub-title {
+    /* 밝은 카드 위 소형 액션 버튼 (보라 채움 / 회색 외곽선) */
+    .figma-btn-mini {
+      padding: 5px 14px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
+      font-family: 'Noto Sans KR', sans-serif;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all .18s ease;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .figma-btn-mini.primary { background: #7C3AED; color: #FFFFFF; }
+    .figma-btn-mini.primary:hover { background: #6D28D9; }
+    .figma-btn-mini.ghost { background: #FFFFFF; color: #475569; border-color: #CBD5E1; }
+    .figma-btn-mini.ghost:hover { background: #F1F5F9; }
+    .figma-btn-mini:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* MVP가 바뀌었는데 프롬프트를 아직 재생성하지 않은 상태 */
+    .figma-stale-badge {
+      font-size: 11px; font-weight: 700;
+      color: #B45309; background: #FEF3C7;
+      border: 1px solid #FCD34D;
+      padding: 3px 9px; border-radius: 10px;
+      white-space: nowrap;
+    }
+    /* 다크 프롬프트 헤더 위에 얹을 때 */
+    .figma-prompt-inner-header .figma-stale-badge {
+      color: #FDE68A; background: rgba(245,158,11,.18); border-color: rgba(253,211,77,.5);
+    }
+
+    /* MVP 편집 입력 */
+    .figma-mvp-item.editing { align-items: center; }
+    .figma-mvp-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #CBD5E1;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Noto Sans KR', sans-serif;
       color: #1E293B;
-      margin-bottom: 2px;
-      display: block;
+      background: #FFFFFF;
+      box-sizing: border-box;
     }
-
-    .ia-sub-desc {
-      font-size: 12px;
-      color: #64748B;
-      line-height: 1.4;
-      display: block;
+    .figma-mvp-input:focus { outline: none; border-color: #7C3AED; box-shadow: 0 0 0 3px rgba(124,58,237,.14); }
+    .figma-mvp-del {
+      width: 26px; height: 26px; flex-shrink: 0;
+      border: none; border-radius: 7px;
+      background: #F1F5F9; color: #64748B;
+      font-size: 14px; line-height: 1; cursor: pointer;
     }
-
-    @media (max-width: 900px) {
-      .ia-flow-grid {
-        min-width: 0;
-      }
-      .ia-flow-grid, .ia-group, .ia-groups, .ia-depth2-col {
-        flex-direction: column;
-        justify-content: flex-start;
-      }
-      .ia-depth0, .ia-depth1 {
-        width: 100%;
-      }
-      .ia-node.has-children::after,
-      .ia-node.has-parent::before {
-        display: none;
-      }
+    .figma-mvp-del:hover:not(:disabled) { background: #FEE2E2; color: #DC2626; }
+    .figma-mvp-del:disabled { opacity: .35; cursor: not-allowed; }
+    .figma-mvp-add {
+      margin-top: 12px;
+      width: 100%;
+      padding: 9px;
+      border: 1px dashed #CBD5E1;
+      border-radius: 9px;
+      background: transparent;
+      color: #7C3AED;
+      font-size: 13px; font-weight: 600;
+      font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer;
     }
+    .figma-mvp-add:hover:not(:disabled) { background: #F5F3FF; border-color: #A78BFA; }
+    .figma-mvp-add:disabled { opacity: .45; cursor: not-allowed; }
+    .figma-mvp-hint { margin-top: 8px; font-size: 12px; color: #94A3B8; }
 
     /* =========================================================
        바이브코딩 프롬프트 (다크/검정색 코드 에디터 스타일)
@@ -3948,8 +3865,23 @@
     let activeIdeaIndex = 0;
     let currentSavedSubTab = 'keywords';
 
+    // MVP 편집 중 상태. null이면 보기 모드. showIdeaDetail()이 카드를
+    // innerHTML로 통째로 다시 그려도 입력값이 날아가지 않도록, 값의
+    // 원본은 DOM이 아니라 여기(draft)에 둔다.
+    let mvpEditState = null;   // { index, draft: string[] }
+    let isRegenerating = false;
+
     let savedKeywords = JSON.parse(localStorage.getItem('eureka_saved_keywords') || '[]');
     let savedIdeas = JSON.parse(localStorage.getItem('eureka_saved_ideas') || '[]');
+
+    // 사용자가 MVP를 직접 타이핑하게 되면서 필요해졌다 — 지금까지는
+    // LLM/하드코딩 텍스트만 화면에 넣었지만 이제 "나, <b>테스트</b> 등
+    // 사용자가 입력한 문자열이 그대로 innerHTML에 꽂힌다.
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     function navigateTo(viewName, param = null) {
       document.querySelectorAll('.screen-view').forEach(v => v.classList.remove('active'));
@@ -5024,9 +4956,29 @@
         slogan: x.slogan, target: x.target, problem: x.problem, solution: x.solution,
         architecture: x.architecture, diff: x.diff,
         mvpFeatures: x.mvp_features, futureFeatures: x.future_features,
-        stack: x.stack, aiTools: x.ai_tools || [], ia: x.ia,
+        stack: x.stack, aiTools: x.ai_tools || [], ia: x.ia || [],
         prompts: x.prompts || null,
-        prompt: x.prompt || (x.prompts ? x.prompts[periodKey] : '')
+        prompt: x.prompt || (x.prompts ? x.prompts[periodKey] : ''),
+        promptStale: false
+      };
+    }
+
+    // toIdeaView()의 역방향 — 프롬프트 재생성 요청 바디(서버의 IdeaSpec)를
+    // 만든다. ia는 화면에서 숨겼을 뿐 데이터로는 그대로 흐른다 — 여기서
+    // 빼면 서버 프롬프트의 "# 2. 시스템 아키텍처 및 서비스 정보구조(IA)"
+    // 항목이 빈 채로 나간다.
+    function toIdeaSpec(idea) {
+      return {
+        id: idea.id || '', name: idea.name, short_name: idea.shortName,
+        approach: idea.approach, slogan: idea.slogan, target: idea.target,
+        problem: idea.problem, solution: idea.solution,
+        architecture: idea.architecture, diff: idea.diff,
+        mvp_features: idea.mvpFeatures || [],
+        future_features: idea.futureFeatures || [],
+        stack: idea.stack || '',
+        ai_tools: idea.aiTools || [],
+        ia: idea.ia || [],
+        prompts: {}, prompt: ''
       };
     }
 
@@ -5071,7 +5023,7 @@
         await stopLoading();
         const drafts = buildFallbackIdeaDrafts(ctx);
         const ideas = drafts.map(d => ({
-          ...d, aiTools: [], prompt: buildPromptForPeriod(d, ctx, period)
+          ...d, aiTools: [], prompt: buildPromptForPeriod(d, ctx, period), promptStale: false
         }));
         renderIdeaResults(ideas, { source: 'fallback' });
       } finally {
@@ -5333,6 +5285,7 @@ ${mvpSection}
     function renderIdeaResults(ideas, meta) {
       generatedIdeas = ideas;
       activeIdeaIndex = 0;
+      mvpEditState = null;   // 새로 생성된 세트이므로 이전 편집 상태를 버린다
 
       document.getElementById('result-loading-screen').style.display = 'none';
       document.getElementById('result-main-screen').style.display = 'block';
@@ -5369,41 +5322,194 @@ ${mvpSection}
       }).join('');
     }
 
-    // idea.ia를 좌(서비스)→우(2Depth) 플로우로 그린다. depth1 카드가 자기 depth2
-    // 자식들과 같은 높이로 stretch 되고, 커넥터가 28px gap 정중앙(±14px)에서
-    // 만난다 — 개수·깊이가 달라져도 무너지지 않는다.
-    function renderIAFlow(iaList, serviceName) {
-      const groupsHtml = iaList.map(node => `
-        <div class="ia-group">
-          <div class="ia-node ia-depth1 has-parent has-children">
-            <span class="ia-node-badge">1 Depth</span>
-            <span class="ia-node-title">${node.depth1}</span>
-          </div>
-          <div class="ia-depth2-col">
-            ${node.depth2.map(sub => `
-              <div class="ia-node ia-depth2 has-parent">
-                <span class="ia-sub-title">2 Depth · ${sub.title}</span>
-                <span class="ia-sub-desc">${sub.desc}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
+    // MVP 항목 문자열 배열을 정리한다 — 공백만 있는 항목은 버린다.
+    function normalizeMvpDraft(draft) {
+      return draft.map(s => (s || '').trim()).filter(s => s.length > 0);
+    }
+
+    // MVP 섹션 HTML만 만든다. 보기/편집 두 모드를 한 함수가 담당하고,
+    // 항목 추가·삭제는 카드 전체가 아니라 #mvp-section 만 교체한다
+    // (프롬프트 <pre>의 스크롤 위치가 튀지 않게).
+    function renderMvpSection(index) {
+      const idea = generatedIdeas[index];
+      const editing = !!(mvpEditState && mvpEditState.index === index);
+      const items = editing ? mvpEditState.draft : (idea.mvpFeatures || []);
+      const stale = !!idea.promptStale;
+      const busy = isRegenerating ? 'disabled' : '';
+
+      const actions = editing
+        ? `<button class="figma-btn-mini primary" data-role="mvp-save-btn" ${busy}
+                   onclick="saveMvpEdit(${index}, false)">저장</button>
+           <button class="figma-btn-mini primary" data-role="regen-btn" ${busy}
+                   onclick="saveMvpEdit(${index}, true)">프롬프트 재생성하기</button>
+           <button class="figma-btn-mini ghost" ${busy}
+                   onclick="cancelMvpEdit(${index})">취소</button>`
+        : `<button class="figma-btn-mini ghost" ${busy}
+                   onclick="startMvpEdit(${index})">수정</button>
+           ${stale ? `<button class="figma-btn-mini primary" data-role="regen-btn" ${busy}
+                   onclick="regenerateIdeaPrompt(${index})">프롬프트 재생성하기</button>` : ''}`;
+
+      const body = editing
+        ? `<ul class="figma-mvp-list">
+             ${items.map((f, i) => `
+               <li class="figma-mvp-item editing">
+                 <span class="figma-mvp-icon">${i + 1}</span>
+                 <input class="figma-mvp-input" type="text" value="${esc(f)}"
+                        maxlength="120" placeholder="핵심 기능을 한 줄로 적어주세요"
+                        oninput="onMvpInput(${i}, this.value)">
+                 <button class="figma-mvp-del" title="삭제" ${items.length <= 1 ? 'disabled' : ''}
+                         onclick="removeMvpItem(${index}, ${i})">✕</button>
+               </li>`).join('')}
+           </ul>
+           <button class="figma-mvp-add" ${items.length >= 8 ? 'disabled' : ''}
+                   onclick="addMvpItem(${index})">+ 항목 추가</button>
+           <p class="figma-mvp-hint">${
+             items.length < 3 || items.length > 5
+               ? `권장 3~5개예요 (지금 ${items.length}개)`
+               : '수정한 뒤 [저장] 또는 [프롬프트 재생성하기]를 눌러주세요.'}</p>`
+        : `<ul class="figma-mvp-list">
+             ${items.map((f, i) => `
+               <li class="figma-mvp-item">
+                 <span class="figma-mvp-icon">${i + 1}</span>
+                 <span>${esc(f)}</span>
+               </li>`).join('')}
+           </ul>`;
 
       return `
-        <div class="ia-flow-grid">
-          <div class="ia-node ia-depth0 has-children">
-            <span class="ia-node-badge">SERVICE</span>
-            <span class="ia-node-title">${serviceName}</span>
+        <div class="figma-detail-section" id="mvp-section">
+          <div class="figma-section-head">
+            <div class="figma-section-head-left">
+              <div class="figma-section-title">먼저 만들 핵심 기능(MVP)</div>
+              ${stale && !editing ? `<span class="figma-stale-badge">프롬프트 미반영</span>` : ''}
+            </div>
+            <div class="figma-section-actions">${actions}</div>
           </div>
-          <div class="ia-groups">
-            ${groupsHtml}
-          </div>
-        </div>
-      `;
+          <div class="figma-content-box">${body}</div>
+        </div>`;
+    }
+
+    // 섹션만 교체 — 카드 전체를 다시 그리지 않는다. 프롬프트 <pre>의
+    // 스크롤 위치나 다른 섹션 DOM이 흔들리지 않게 하기 위함.
+    function repaintMvpSection(index) {
+      const el = document.getElementById('mvp-section');
+      if (el) el.outerHTML = renderMvpSection(index);
+      else showIdeaDetail(index);
+    }
+
+    function startMvpEdit(index) {
+      mvpEditState = { index, draft: (generatedIdeas[index].mvpFeatures || []).slice() };
+      if (mvpEditState.draft.length === 0) mvpEditState.draft = [''];
+      repaintMvpSection(index);
+    }
+
+    // 입력값의 원본은 DOM이 아니라 draft다. 이래야 toggleSaveIdea() 등이
+    // 카드를 통째로 다시 그려도 타이핑한 내용이 살아남는다.
+    function onMvpInput(i, value) {
+      if (!mvpEditState) return;
+      mvpEditState.draft[i] = value;
+    }
+
+    function addMvpItem(index) {
+      if (!mvpEditState || mvpEditState.draft.length >= 8) return;
+      mvpEditState.draft.push('');
+      repaintMvpSection(index);
+      const inputs = document.querySelectorAll('#mvp-section .figma-mvp-input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }
+
+    function removeMvpItem(index, i) {
+      if (!mvpEditState || mvpEditState.draft.length <= 1) return;
+      mvpEditState.draft.splice(i, 1);
+      repaintMvpSection(index);
+    }
+
+    function cancelMvpEdit(index) {
+      mvpEditState = null;
+      repaintMvpSection(index);
+    }
+
+    // alsoRegenerate=true면 저장 후 곧바로 프롬프트 재생성까지 간다
+    // ("저장 버튼 옆에 재생성 버튼" 요구사항 — 저장 안 하고 재생성하는
+    // 모순 상태를 없애기 위해 저장을 먼저 하고 이어서 재생성한다).
+    function saveMvpEdit(index, alsoRegenerate) {
+      if (!mvpEditState || mvpEditState.index !== index) return;
+      const cleaned = normalizeMvpDraft(mvpEditState.draft);
+      if (cleaned.length === 0) { showToast('핵심 기능을 최소 1개는 남겨주세요.'); return; }
+
+      const idea = generatedIdeas[index];
+      const changed = JSON.stringify(cleaned) !== JSON.stringify(idea.mvpFeatures || []);
+      idea.mvpFeatures = cleaned;
+      if (changed) idea.promptStale = true;
+      mvpEditState = null;
+
+      syncSavedIdea(idea);
+
+      if (alsoRegenerate) { regenerateIdeaPrompt(index); return; }
+      showIdeaDetail(index);
+      showToast(changed
+        ? '💾 MVP를 저장했어요. 프롬프트를 재생성하면 반영돼요!'
+        : '💾 저장했어요.');
+    }
+
+    function setRegenBusy(busy) {
+      document.querySelectorAll('[data-role="regen-btn"]').forEach(b => { b.disabled = busy; });
+      document.querySelectorAll('[data-role="mvp-save-btn"]').forEach(b => { b.disabled = busy; });
+    }
+
+    // 수정한 MVP로 프롬프트를 다시 만든다. 서버 우선, 실패하면(서버 다운·
+    // file:// 로 열었을 때) buildPromptForPeriod()로 오프라인 조립한다 —
+    // executeIdeaGeneration()과 같은 패턴이다.
+    async function regenerateIdeaPrompt(index) {
+      if (isRegenerating) return;
+      const idea = generatedIdeas[index];
+      if (!idea) return;
+
+      isRegenerating = true;
+      setRegenBusy(true);
+      const period = configSettings.period;
+      const ctx = { keyword: selectedKeyword.name, platform: configSettings.platform, type: configSettings.type };
+
+      try {
+        if (!['http:', 'https:'].includes(location.protocol)) {
+          throw new Error('file:// 에서는 서버 API를 부를 수 없습니다.');
+        }
+        const ac = new AbortController();
+        const timeoutId = setTimeout(() => ac.abort(), 30000);
+        const res = await fetch(`/api/trends/${selectedKeyword.id}/ideas/prompt`, {
+          method: 'POST',
+          signal: ac.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform: ctx.platform, type: ctx.type, period,
+            idea: toIdeaSpec(idea)
+          })
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error('프롬프트 재생성 실패: ' + res.status);
+        const data = await res.json();
+        idea.prompts = data.prompts || idea.prompts;
+        idea.prompt = data.prompt;
+        showToast('✨ 수정한 MVP로 프롬프트를 다시 만들었어요!');
+      } catch (err) {
+        console.warn('[프롬프트 재생성] API 실패, 내장 생성기로 대체합니다:', err.message);
+        idea.prompt = buildPromptForPeriod(idea, ctx, period);
+        if (idea.prompts) idea.prompts[PERIOD_KEY[period] || 'day'] = idea.prompt;
+        showToast('✨ 프롬프트를 다시 만들었어요 (오프라인 모드)');
+      } finally {
+        idea.promptStale = false;
+        isRegenerating = false;
+        syncSavedIdea(idea);
+        showIdeaDetail(index);
+      }
     }
 
     function showIdeaDetail(index) {
+      // 다른 아이디어로 넘어갈 때만 편집 중인 내용을 버릴지 묻는다.
+      // 같은 index면(저장 버튼 토글 등으로 인한 재렌더) draft를 그대로 살린다.
+      if (mvpEditState && mvpEditState.index !== index) {
+        if (!confirm('수정 중인 MVP 내용이 있습니다. 저장하지 않고 이동할까요?')) return;
+        mvpEditState = null;
+      }
       activeIdeaIndex = index;
       renderIdeasTabs();
 
@@ -5455,26 +5561,7 @@ ${mvpSection}
             </div>
           </div>
 
-          <div class="figma-detail-section">
-            <div class="figma-section-title">먼저 만들 핵심 기능(MVP)</div>
-            <div class="figma-content-box">
-              <ul class="figma-mvp-list">
-                ${idea.mvpFeatures.map((f, i) => `
-                  <li class="figma-mvp-item">
-                    <span class="figma-mvp-icon">${i + 1}</span>
-                    <span>${f}</span>
-                  </li>
-                `).join('')}
-              </ul>
-            </div>
-          </div>
-
-          <div class="figma-detail-section">
-            <div class="figma-section-title">화면 구성도(IA)</div>
-            <div class="figma-ia-box">
-              ${renderIAFlow(idea.ia, idea.shortName)}
-            </div>
-          </div>
+          ${renderMvpSection(index)}
 
           <div class="figma-detail-section" style="margin-top: 8px;">
             <div class="figma-section-title">바이브코딩 프롬프트</div>
@@ -5487,16 +5574,20 @@ ${mvpSection}
                   </svg>
                   <span>Cursor / Claude 맞춤형 개발 프롬프트</span>
                   <span class="figma-prompt-period-tag">${configSettings.period}</span>
+                  ${idea.promptStale ? `<span class="figma-stale-badge">수정한 MVP 미반영</span>` : ''}
                 </div>
-                <button class="figma-btn-copy-prompt" onclick="copyPromptToClipboard(${index})">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                  프롬프트 복사하기
-                </button>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  ${idea.promptStale ? `<button class="figma-btn-copy-prompt" data-role="regen-btn" ${isRegenerating ? 'disabled' : ''} onclick="regenerateIdeaPrompt(${index})">프롬프트 재생성하기</button>` : ''}
+                  <button class="figma-btn-copy-prompt" onclick="copyPromptToClipboard(${index})">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    프롬프트 복사하기
+                  </button>
+                </div>
               </div>
-              <pre class="figma-prompt-content-text" id="prompt-pre-${index}">${idea.prompt}</pre>
+              <pre class="figma-prompt-content-text" id="prompt-pre-${index}">${esc(idea.prompt)}</pre>
             </div>
           </div>
         </div>
@@ -5569,7 +5660,21 @@ ${mvpSection}
                 ✕
               </button>
             </div>
-            <p style="color: #374151; font-size: 14px; margin-bottom: 16px;">"${item.slogan}"</p>
+            <p style="color: #374151; font-size: 14px; margin-bottom: 12px;">"${esc(item.slogan)}"</p>
+            ${Array.isArray(item.mvpFeatures) && item.mvpFeatures.length ? `
+              <div style="width:100%; margin-bottom:14px;">
+                <div style="font-size:12px; font-weight:700; color:#64748B; margin-bottom:6px;">핵심 기능(MVP)</div>
+                <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:4px;">
+                  ${item.mvpFeatures.slice(0, 3).map((f, n) => `
+                    <li style="display:flex; gap:7px; font-size:13px; color:#475569; line-height:1.45;">
+                      <span class="figma-mvp-icon" style="width:17px; height:17px; font-size:10px;">${n + 1}</span>
+                      <span>${esc(f)}</span>
+                    </li>`).join('')}
+                  ${item.mvpFeatures.length > 3
+                    ? `<li style="font-size:12px; color:#94A3B8; padding-left:24px;">외 ${item.mvpFeatures.length - 3}개</li>`
+                    : ''}
+                </ul>
+              </div>` : ''}
             <button class="copy-prompt-btn" style="padding: 8px 16px; font-size: 13px; align-self: flex-start;" onclick="copySavedPromptText(${i})">
               📋 바이브코딩 프롬프트 복사
             </button>
@@ -5637,6 +5742,7 @@ ${mvpSection}
           name: idea.name,
           slogan: idea.slogan,
           keyword: selectedKeyword.name,
+          mvpFeatures: (idea.mvpFeatures || []).slice(),
           prompt: idea.prompt,
           duration: configSettings.period,
           date: new Date().toLocaleDateString('ko-KR')
@@ -5647,6 +5753,20 @@ ${mvpSection}
       localStorage.setItem('eureka_saved_ideas', JSON.stringify(savedIdeas));
       updateSavedCounts();
       showIdeaDetail(index);
+    }
+
+    // 이미 보관함에 있는 아이디어를 편집·재생성했으면 그 항목도 같이
+    // 갱신한다. 보관함에 없으면 아무것도 하지 않는다(편집만으로 저장되지
+    // 않는다 — 저장은 별표를 눌러야 한다).
+    function syncSavedIdea(idea) {
+      const i = savedIdeas.findIndex(s => s.name === idea.name);
+      if (i === -1) return;
+      savedIdeas[i].mvpFeatures = (idea.mvpFeatures || []).slice();
+      savedIdeas[i].prompt = idea.prompt;
+      savedIdeas[i].slogan = idea.slogan;
+      localStorage.setItem('eureka_saved_ideas', JSON.stringify(savedIdeas));
+      const savedView = document.getElementById('view-saved');
+      if (savedView && savedView.classList.contains('active')) renderSavedScreen();
     }
 
     function updateSavedCounts() {
