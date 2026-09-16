@@ -85,10 +85,11 @@ def complete_ideas_json(prompt: str) -> list[dict]:
             max_tokens=settings.IDEA_LLM_MAX_TOKENS,
             temperature=settings.IDEA_LLM_TEMPERATURE,
         )
-    except Exception:
+    except Exception as e:
         elapsed = time.monotonic() - started
-        logger.warning("아이디어 LLM 호출 실패 (%.1f초 만에) — provider=%s model=%s",
-                        elapsed, settings.LLM_PROVIDER, settings.GEMINI_MODEL)
+        logger.warning("아이디어 LLM 호출 실패 (%.1f초 만에) — provider=%s model=%s max_tokens=%d — %s: %s",
+                        elapsed, settings.LLM_PROVIDER, settings.GEMINI_MODEL,
+                        settings.IDEA_LLM_MAX_TOKENS, type(e).__name__, e)
         raise
     elapsed = time.monotonic() - started
     logger.info("아이디어 LLM 호출 완료: %.1f초 (provider=%s model=%s max_tokens=%d)",
