@@ -103,7 +103,12 @@ class Settings(BaseSettings):
     # ── 아이디어 생성 (④ 아이디어 생성기, v1) ─────
     IDEAS_DIR: Path = _BACKEND_ROOT / "data" / "ideas"
     IDEA_COUNT_DEFAULT: int = 3
-    IDEA_LLM_MAX_TOKENS: int = 8000
+    # 실측: 아이디어 3개(name/slogan/mvp_features/ia 등 전 필드) JSON은
+    # 800~1500 토큰 정도면 충분하다(app/prompts/idea_prompts.py 출력
+    # 스키마 기준). 예전 8000은 여유를 과하게 둬서 응답 생성 시간의
+    # 상한만 키웠다 — 모델이 실제로 그만큼 채우지 않아도 일부 제공자는
+    # max_tokens 크기에 따라 내부 버퍼링·생성 시간이 늘어난다.
+    IDEA_LLM_MAX_TOKENS: int = 3000
     # 판별용 LLM_TEMPERATURE 기본값(0.0)과 달리 아이디어 생성은 매번 다른
     # 결과가 나와야 하므로 온도를 높게 둔다.
     IDEA_LLM_TEMPERATURE: float = 0.9

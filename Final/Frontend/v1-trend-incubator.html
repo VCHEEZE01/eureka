@@ -5337,11 +5337,11 @@ ${mvpSection}
       const stale = !!idea.promptStale;
       const busy = isRegenerating ? 'disabled' : '';
 
+      // 편집 중에는 [저장]/[취소]만 둔다 — 재생성은 저장을 마치고
+      // 보기 모드로 돌아온 뒤 [수정] 옆에서 한다(아래 stale 분기).
       const actions = editing
         ? `<button class="figma-btn-mini primary" data-role="mvp-save-btn" ${busy}
-                   onclick="saveMvpEdit(${index}, false)">저장</button>
-           <button class="figma-btn-mini primary" data-role="regen-btn" ${busy}
-                   onclick="saveMvpEdit(${index}, true)">프롬프트 재생성하기</button>
+                   onclick="saveMvpEdit(${index})">저장</button>
            <button class="figma-btn-mini ghost" ${busy}
                    onclick="cancelMvpEdit(${index})">취소</button>`
         : `<button class="figma-btn-mini ghost" ${busy}
@@ -5366,7 +5366,7 @@ ${mvpSection}
            <p class="figma-mvp-hint">${
              items.length < 3 || items.length > 5
                ? `권장 3~5개예요 (지금 ${items.length}개)`
-               : '수정한 뒤 [저장] 또는 [프롬프트 재생성하기]를 눌러주세요.'}</p>`
+               : '수정한 뒤 [저장]을 누르면, 이어서 프롬프트를 재생성할 수 있어요.'}</p>`
         : `<ul class="figma-mvp-list">
              ${items.map((f, i) => `
                <li class="figma-mvp-item">
@@ -5428,10 +5428,10 @@ ${mvpSection}
       repaintMvpSection(index);
     }
 
-    // alsoRegenerate=true면 저장 후 곧바로 프롬프트 재생성까지 간다
-    // ("저장 버튼 옆에 재생성 버튼" 요구사항 — 저장 안 하고 재생성하는
-    // 모순 상태를 없애기 위해 저장을 먼저 하고 이어서 재생성한다).
-    function saveMvpEdit(index, alsoRegenerate) {
+    // 저장만 한다 — 재생성은 저장 후 보기 모드에서 [수정] 옆에 뜨는
+    // [프롬프트 재생성하기]를 따로 눌러야 한다(편집 중에는 재생성
+    // 버튼을 두지 않는다).
+    function saveMvpEdit(index) {
       if (!mvpEditState || mvpEditState.index !== index) return;
       const cleaned = normalizeMvpDraft(mvpEditState.draft);
       if (cleaned.length === 0) { showToast('핵심 기능을 최소 1개는 남겨주세요.'); return; }
@@ -5443,8 +5443,6 @@ ${mvpSection}
       mvpEditState = null;
 
       syncSavedIdea(idea);
-
-      if (alsoRegenerate) { regenerateIdeaPrompt(index); return; }
       showIdeaDetail(index);
       showToast(changed
         ? '💾 MVP를 저장했어요. 프롬프트를 재생성하면 반영돼요!'
