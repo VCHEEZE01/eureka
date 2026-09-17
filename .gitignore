@@ -13,3 +13,6 @@ node_modules/
 
 # v0 프론트(frontend/)의 로컬 잔여물. 소스는 tag v0-pre-pivot에 보존돼 있다.
 /frontend/
+
+# Vercel CLI 로컬 링크 정보
+.vercel/

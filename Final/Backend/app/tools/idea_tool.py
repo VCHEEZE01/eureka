@@ -11,16 +11,12 @@
   app.core.llm 과 data/trends 스냅샷을 만난다.
 """
 
-import json
 import logging
 import time
-from pathlib import Path
 
 from app.config.settings import settings
 from app.core.llm import LLMError, get_llm
-
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
-LATEST_SNAPSHOT_PATH = _BACKEND_ROOT / "data" / "trends" / "latest_snapshot.json"
+from app.trends import snapshot_store
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +42,7 @@ def load_keyword(keyword_id: str) -> dict:
     """app/trends/build_snapshot.py 가 만든 최신 스냅샷에서 키워드 리포트
     하나를 읽는다. trend_routes.get_trend_report() 와 같은 읽기 방식이다
     — 여기서 계산하지 않는다."""
-    if not LATEST_SNAPSHOT_PATH.is_file():
-        raise SnapshotNotReady("아직 게시된 트렌드 스냅샷이 없습니다.")
-    snapshot = json.loads(LATEST_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    snapshot = _load_snapshot()
     for tab_items in snapshot["by_tab"].values():
         for item in tab_items:
             if item["id"] == keyword_id:
@@ -57,10 +51,14 @@ def load_keyword(keyword_id: str) -> dict:
 
 
 def load_snapshot_info() -> dict:
-    if not LATEST_SNAPSHOT_PATH.is_file():
+    return _load_snapshot()["snapshot"]
+
+
+def _load_snapshot() -> dict:
+    snapshot = snapshot_store.load_latest()
+    if snapshot is None:
         raise SnapshotNotReady("아직 게시된 트렌드 스냅샷이 없습니다.")
-    snapshot = json.loads(LATEST_SNAPSHOT_PATH.read_text(encoding="utf-8"))
-    return snapshot["snapshot"]
+    return snapshot
 
 
 def complete_ideas_json(prompt: str) -> list[dict]:

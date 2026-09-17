@@ -12,10 +12,13 @@ app/trends/ 가 파일(JSON) 하나로 스냅샷을 다루는 것과 같은 방�
 
 import hashlib
 import json
+import logging
 from pathlib import Path
 
 from app.config.settings import settings
 from app.prompts.idea_prompts import PROMPT_VERSION
+
+logger = logging.getLogger(__name__)
 
 
 def cache_key(snapshot_id: str, keyword_id: str, platform_key: str, type_key: str, count: int) -> str:
@@ -38,6 +41,11 @@ def read(keyword_id: str, platform_key: str, type_key: str, key: str) -> dict | 
 
 
 def write(keyword_id: str, platform_key: str, type_key: str, key: str, data: dict) -> None:
+    """캐시는 있으면 좋은 것이다. 쓰기에 실패해도(읽기 전용 파일시스템 등)
+    이미 LLM이 만든 결과를 사용자에게 돌려줘야 하므로 예외를 올리지 않는다."""
     path = _path(keyword_id, platform_key, type_key, key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError as e:
+        logger.warning("아이디어 캐시 저장 실패 (결과는 정상 반환): %s — %s", path, e)

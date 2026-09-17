@@ -7,26 +7,24 @@ GET /api/trends/{keyword_id}      키워드 하나의 분석 리포트
 가장 최근 게시된 스냅샷(app/trends/build_snapshot.py가 만든
 data/trends/latest_snapshot.json)을 읽기만 한다 — 여기서 계산하지
 않는다. 스냅샷이 없으면 503(snapshot_not_ready)을 낸다.
+(읽기는 app/trends/snapshot_store.py — Vercel 예외도 거기 있다)
 """
-
-import json
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-router = APIRouter(prefix="/api/trends", tags=["trends"])
+from app.trends import snapshot_store
 
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
-LATEST_PATH = _BACKEND_ROOT / "data" / "trends" / "latest_snapshot.json"
+router = APIRouter(prefix="/api/trends", tags=["trends"])
 
 
 def _load_snapshot() -> dict:
-    if not LATEST_PATH.is_file():
+    snapshot = snapshot_store.load_latest()
+    if snapshot is None:
         raise HTTPException(
             status_code=503,
             detail={"error_code": "snapshot_not_ready", "message": "아직 게시된 트렌드 스냅샷이 없습니다. 배치를 먼저 실행해 주세요."},
         )
-    return json.loads(LATEST_PATH.read_text(encoding="utf-8"))
+    return snapshot
 
 
 @router.get("")

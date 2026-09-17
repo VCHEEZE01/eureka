@@ -15,10 +15,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_IDEAS_DIR = _BACKEND_ROOT / "data" / "ideas"
 
 
 class Settings(BaseSettings):
@@ -101,7 +102,7 @@ class Settings(BaseSettings):
     API_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     # ── 아이디어 생성 (④ 아이디어 생성기, v1) ─────
-    IDEAS_DIR: Path = _BACKEND_ROOT / "data" / "ideas"
+    IDEAS_DIR: Path = _DEFAULT_IDEAS_DIR
     IDEA_COUNT_DEFAULT: int = 3
     # 실측(실제 Gemini 호출, usageMetadata.candidatesTokenCount 기준):
     #   count=3 → 1800~1950 토큰,  count=5 → 2900~3000 토큰
@@ -114,6 +115,13 @@ class Settings(BaseSettings):
     # 판별용 LLM_TEMPERATURE 기본값(0.0)과 달리 아이디어 생성은 매번 다른
     # 결과가 나와야 하므로 온도를 높게 둔다.
     IDEA_LLM_TEMPERATURE: float = 0.9
+
+    # ── 배포 환경 (Vercel) ───────────────────────
+    # Vercel이 런타임에 VERCEL=1 을 자동으로 넣는다. 직접 설정하지 말 것.
+    # Vercel 함수는 배포 폴더가 읽기 전용이고 /tmp 만 쓸 수 있으며,
+    # gitignore 대상인 data/ 도 올라가지 않는다 → _serverless_paths,
+    # app/trends/snapshot_store.py 참고.
+    VERCEL: bool = False
 
     # ── 방어 ────────────────────────────────────
 
@@ -141,6 +149,14 @@ class Settings(BaseSettings):
         if not 1 <= value <= ceilings[info.field_name]:
             raise ValueError(f"{info.field_name}은 1부터 {ceilings[info.field_name]} 사이여야 합니다")
         return value
+
+    @model_validator(mode="after")
+    def _serverless_paths(self) -> "Settings":
+        """Vercel에서는 아이디어 캐시를 /tmp 로 옮긴다. 인스턴스가 살아 있는
+        동안만 유지되는 임시 캐시가 된다. IDEAS_DIR 을 직접 지정했으면 그 값을 존중한다."""
+        if self.VERCEL and self.IDEAS_DIR == _DEFAULT_IDEAS_DIR:
+            self.IDEAS_DIR = Path("/tmp/eureka/ideas")
+        return self
 
     # ── 파생 ────────────────────────────────────
 
