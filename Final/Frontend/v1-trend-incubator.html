@@ -7274,14 +7274,26 @@ ${mvpSection}
           <div class="figma-detail-section">
             <div class="figma-section-header-row">
               <div class="figma-section-title">핵심 기능</div>
-              <button class="figma-btn-edit-feature" id="btn-edit-feature-${index}" onclick="editIdeaFeatures(${index})" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-                <span>수정하기</span>
-              </button>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button class="figma-btn-edit-feature" id="btn-regen-feature-${index}"
+                        onclick="handleRegeneratePromptClick(${index})" type="button"
+                        style="${idea.promptStale ? '' : 'display:none;'}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                  </svg>
+                  <span>프롬프트 재생성하기</span>
+                </button>
+                <button class="figma-btn-edit-feature" id="btn-edit-feature-${index}" onclick="editIdeaFeatures(${index})" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  <span>수정하기</span>
+                </button>
+              </div>
             </div>
+            ${idea.promptStale ? `<p style="font-size:12px; color:#B45309; margin:-4px 0 8px;">MVP를 수정했어요. [프롬프트 재생성하기]를 눌러야 프롬프트에 반영돼요.</p>` : ''}
             <div class="figma-content-box">
               <ul class="figma-mvp-list" id="mvp-features-list-${index}">
                 ${idea.mvpFeatures.map((f, i) => `
@@ -7349,35 +7361,38 @@ ${mvpSection}
       }
     }
 
-    async function editIdeaFeatures(index) {
+    // 수정 중에는 저장만 한다 — 재생성 버튼은 편집 모드에서 숨긴다.
+    // 저장을 마치면 MVP는 바뀌었지만 프롬프트는 아직 그대로다
+    // (idea.promptStale = true) — 재생성은 보기 모드로 돌아온 뒤
+    // [수정하기] 옆에 뜨는 [프롬프트 재생성하기]를 따로 눌러야 한다.
+    function editIdeaFeatures(index) {
       const container = document.getElementById(`mvp-features-list-${index}`);
       if (!container) return;
       const idea = generatedIdeas[index];
       if (!idea) return;
 
       if (editingFeatureIndex === index) {
-        // 수정 완료 처리
+        // 저장 처리 (재생성 없음)
         const inputs = container.querySelectorAll('.figma-feature-input');
         const newFeatures = [];
         inputs.forEach(inp => {
           if (inp.value.trim()) newFeatures.push(inp.value.trim());
         });
         if (newFeatures.length > 0) {
+          const changed = JSON.stringify(newFeatures) !== JSON.stringify(idea.mvpFeatures || []);
           idea.mvpFeatures = newFeatures;
-          const btn = document.getElementById(`btn-edit-feature-${index}`);
-          if (btn) { btn.disabled = true; btn.innerHTML = '<span>재생성 중...</span>'; }
-
-          const ctx = { keyword: selectedKeyword.name, platform: configSettings.platform, type: configSettings.type };
-          idea.prompt = await regenerateIdeaPrompt(idea, ctx, configSettings.period);
-
-          if (btn) btn.disabled = false;
+          if (changed) idea.promptStale = true;
         }
         editingFeatureIndex = -1;
         syncSavedIdea(idea);
         showIdeaDetail(index);
-        showToast("✨ 핵심 기능이 수정되었습니다!");
+        showToast(idea.promptStale
+          ? "💾 핵심 기능을 저장했어요. [프롬프트 재생성하기]를 누르면 반영돼요."
+          : "💾 저장했어요.");
       } else {
         editingFeatureIndex = index;
+        const regenBtn = document.getElementById(`btn-regen-feature-${index}`);
+        if (regenBtn) regenBtn.style.display = 'none';
         const btn = document.getElementById(`btn-edit-feature-${index}`);
         if (btn) {
           btn.innerHTML = `
@@ -7395,6 +7410,22 @@ ${mvpSection}
           </li>
         `).join('');
       }
+    }
+
+    // [프롬프트 재생성하기] 버튼 전용 — 보기 모드에서만 뜬다.
+    async function handleRegeneratePromptClick(index) {
+      const idea = generatedIdeas[index];
+      if (!idea || isGenerating) return;
+      const btn = document.getElementById(`btn-regen-feature-${index}`);
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span>재생성 중...</span>'; }
+
+      const ctx = { keyword: selectedKeyword.name, platform: configSettings.platform, type: configSettings.type };
+      idea.prompt = await regenerateIdeaPrompt(idea, ctx, configSettings.period);
+      idea.promptStale = false;
+
+      syncSavedIdea(idea);
+      showIdeaDetail(index);
+      showToast("✨ 수정한 핵심 기능으로 프롬프트를 다시 만들었어요!");
     }
 
     // 이미 보관함에 있는 아이디어를 편집했으면 그 항목도 같이 갱신한다.
