@@ -2,8 +2,8 @@
 ④ 아이디어 생성기 — v1 (트렌드 키워드 → 아이디어 3개)
 
 역할  : 트렌드 키워드 + 플랫폼 + 아이디어 유형에서 서로 다른 아이디어를 뽑는다
-입력  : 키워드 id, 플랫폼(웹/모바일 앱/데스크탑 웹), 유형(실용/재미/수익)
-출력  : 아이디어 N개 (설명 / 추천 AI 툴 / 서비스 타겟 / MVP / IA / 기간별 프롬프트)
+입력  : 키워드 id, 플랫폼(웹/모바일 앱), 유형(실용/재미/수익)
+출력  : 아이디어 N개 (설명 / 추천 AI / 서비스 타겟 / MVP / IA / 기간별 프롬프트)
 
 ★ v0 계약과 다르다 (docs/PIVOT.md 참고)
   v0의 IdeaInput은 Problem + UserCondition(git tag v0-pre-pivot의 이
@@ -132,8 +132,13 @@ class IdeaAgent(Agent[IdeaAgentInput, IdeaSet]):
             idea.id = idea.id or f"{data.keyword_id}-{axis.platform_key}-{axis.type_key}-{i}"
             if not idea.stack:
                 idea.stack = axes.build_stack(axis)
-            if not idea.ai_tools:
-                idea.ai_tools = [AiTool(**t) for t in axes.pick_ai_tools(axis)]
+            # 추천 AI는 축이 아니라 기간으로 정해지므로 LLM이 뭘 보냈든
+            # 코드가 덮어쓴다(화이트리스트 밖 이름이 화면에 나가면 안 된다).
+            idea.ai_tools_by_period = {
+                p: [AiTool(**t) for t in tools]
+                for p, tools in axes.tools_by_period().items()
+            }
+            idea.ai_tools = idea.ai_tools_by_period["day"]
             idea.prompts = {
                 period: build_period_prompt(idea, kw["name"], axis, period)
                 for period in ("day", "week", "month")

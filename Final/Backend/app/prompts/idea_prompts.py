@@ -19,7 +19,11 @@ from app.ideas.axes import ResolvedAxis
 from app.prompts.common_prompts import with_rules
 from app.schemas.idea_models import IdeaSpec
 
-PROMPT_VERSION = 1
+# 이 값은 아이디어 캐시 키에 들어간다(app/ideas/cache.py) — 올리면
+# 디스크에 남은 캐시가 전부 무효가 된다. 프롬프트 문구나 아이디어의
+# 구조가 바뀌어 옛 캐시를 그대로 쓰면 안 될 때만 올린다.
+#   1 → 2 (2026-09-19): "웹앱" 문구 정정 + 추천 AI가 기간별 목록으로 바뀜.
+PROMPT_VERSION = 2
 
 # ── IA 작성 규칙 (docs/IDEA_GENERATION_HANDOFF.md 원문) ───────────
 

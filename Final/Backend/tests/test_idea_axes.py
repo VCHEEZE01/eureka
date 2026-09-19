@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from app.ideas import axes
@@ -37,16 +39,32 @@ def test_nine_combos_have_unique_stack():
     assert len(stacks) == 6
 
 
-def test_nine_combos_have_unique_ai_tool_sets():
-    tool_sets = set()
-    for p, t in ALL_COMBOS:
-        axis = axes.resolve(axes.PLATFORM_SPEC[p]["label"], axes.TYPE_SPEC[t]["label"])
-        tool_sets.add(tuple(sorted(x["id"] for x in axes.pick_ai_tools(axis))))
-    assert len(tool_sets) == 6
+def test_ai_tools_are_fixed_per_period():
+    """추천 AI는 축이 아니라 기간으로 정해진다 — 표에 적힌 그대로 나와야 한다."""
+    assert [t["id"] for t in axes.tools_for_period("day")] == ["chatgpt", "gemini", "claude", "ai_studio"]
+    assert [t["id"] for t in axes.tools_for_period("week")] == ["antigravity", "cursor"]
+    assert [t["id"] for t in axes.tools_for_period("month")] == ["claude_code", "codex"]
+
+
+def test_ai_tools_differ_across_periods():
+    sets = {p: tuple(t["id"] for t in axes.tools_for_period(p)) for p in ("day", "week", "month")}
+    assert len(set(sets.values())) == 3, sets
 
 
 def test_ai_tools_are_all_in_catalog():
-    for p, t in ALL_COMBOS:
-        axis = axes.resolve(axes.PLATFORM_SPEC[p]["label"], axes.TYPE_SPEC[t]["label"])
-        for tool in axes.pick_ai_tools(axis):
+    for period, tools in axes.tools_by_period().items():
+        assert tools, f"{period} 기간의 추천 AI가 비어 있다"
+        for tool in tools:
             assert tool["id"] in axes.AI_TOOL_CATALOG
+            assert tool["name"] and tool["role"]
+
+
+def test_unknown_period_falls_back_to_day():
+    """화면 pill이 빈 채로 남는 것보다 하루 목록이라도 보여주는 쪽."""
+    assert axes.tools_for_period("decade") == axes.tools_for_period("day")
+
+
+def test_ai_tool_names_carry_no_version_or_model_number():
+    """'Claude 3.5 Sonnet'처럼 금방 낡는 이름이 사용자에게 나가면 안 된다."""
+    for tool in axes.AI_TOOL_CATALOG.values():
+        assert not re.search(r"\d", tool["name"]), tool["name"]

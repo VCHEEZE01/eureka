@@ -11,7 +11,7 @@ LLM 없이 축 테이블만으로 아이디어를 만드는 결정적 폴백.
   일 때만 부른다.
 """
 
-from app.ideas.axes import ResolvedAxis, build_stack, pick_ai_tools
+from app.ideas.axes import ResolvedAxis, build_stack, tools_by_period, tools_for_period
 from app.schemas.idea_models import AiTool, Depth1Node, Depth2Node, IdeaSpec
 
 _APPROACHES = ["radar", "collector", "roulette"]
@@ -135,7 +135,6 @@ def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int) -> IdeaSpec:
         ]
         future = ["장바구니 딥링크", "유저 랭킹전"]
 
-    ai_tools = [AiTool(**tool) for tool in pick_ai_tools(axis)]
     flavor = _TYPE_FLAVOR[axis.type_key]
     mvp = mvp + [flavor["mvp_extra"]]
 
@@ -155,7 +154,11 @@ def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int) -> IdeaSpec:
         mvp_features=mvp,
         future_features=future,
         stack=build_stack(axis),
-        ai_tools=ai_tools,
+        ai_tools=[AiTool(**tool) for tool in tools_for_period("day")],
+        ai_tools_by_period={
+            p: [AiTool(**tool) for tool in tools]
+            for p, tools in tools_by_period().items()
+        },
         ia=_ia_for(axis, approach, kw),
     )
 

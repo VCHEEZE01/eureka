@@ -24,9 +24,15 @@ def test_nine_combos_produce_distinct_stack():
     assert len(set(stacks.values())) == 6, stacks
 
 
-def test_nine_combos_produce_distinct_ai_tools():
-    tools = {(p, t): tuple(x.id for x in _build(p, t)[1][0].ai_tools) for p, t in ALL_COMBOS}
-    assert len(set(tools.values())) == 6, tools
+def test_fallback_carries_period_fixed_ai_tools():
+    """폴백도 LLM 경로와 같은 기간별 고정 목록을 달고 나와야 한다."""
+    for p, t in ALL_COMBOS:
+        _, ideas = _build(p, t)
+        for idea in ideas:
+            assert set(idea.ai_tools_by_period) == {"day", "week", "month"}
+            assert [x.id for x in idea.ai_tools_by_period["week"]] == ["antigravity", "cursor"]
+            # ai_tools는 하위 호환용 'day' 사본이다
+            assert [x.id for x in idea.ai_tools] == [x.id for x in idea.ai_tools_by_period["day"]]
 
 
 def test_ia_depth1_count_respects_platform_shape():
