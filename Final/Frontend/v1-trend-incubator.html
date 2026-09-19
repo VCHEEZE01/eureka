@@ -7638,7 +7638,7 @@ ${mvpSection}
                   <div class="saved-idea-header">
                     <div>
                       <div class="saved-idea-title">${item.name}</div>
-                      <div class="saved-idea-meta">#${item.keyword || '트렌드'} 기반 기획안 · ${item.date || '최근 저장'}</div>
+                      <div class="saved-idea-meta">#${item.keyword || '트렌드'} 기반 기획안 · ${item.date || '최근 저장'}${item.periodLegacy ? ' · 기간 미기록' : (item.periodKey ? ' · ' + ({day:'하루',week:'일주일',month:'한 달 이상'}[item.periodKey] || '') : '')}</div>
                     </div>
                     <button class="saved-delete-btn" onclick="removeSavedIdea(${i})" title="삭제">
                       ✕

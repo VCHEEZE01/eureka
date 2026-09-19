@@ -11,6 +11,7 @@ FastAPI 진입점.
 
 from app.api.auth_routes import router as auth_router
 from app.api.idea_routes import router as idea_router
+from app.api.library_routes import router as library_router
 from app.api.routes import router
 from app.api.trend_routes import router as trend_router
 from fastapi import FastAPI
@@ -20,3 +21,4 @@ app.include_router(router)
 app.include_router(trend_router)
 app.include_router(idea_router)
 app.include_router(auth_router)
+app.include_router(library_router)

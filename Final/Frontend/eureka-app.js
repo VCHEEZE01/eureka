@@ -37,7 +37,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '0.2.0-auth';       // 4단계: 로그인 UI. 보관함 서버 저장은 아직.
+  var VERSION = '0.3.0-library';    // 5단계: 로그인 UI + 보관함 서버 저장 + 이관.
   var LOG = '[eureka]';
 
   /* ── 디자인 HTML 과의 계약 ──────────────────────────────────────────
@@ -60,7 +60,9 @@
     // 감싸거나 그대로 호출할 함수 (대체하지 않는다 — 디자인 소유)
     uses: [
       'renderIdeasTabs', 'renderSavedScreen', 'showIdeaDetail',
-      'showToast', 'navigateTo', 'esc', 'aiToolsFor'
+      'showToast', 'navigateTo', 'esc', 'aiToolsFor',
+      'findKeywordById', 'renderBestKeywordsGrid', 'renderWeeklySlider',
+      'renderDetailScreen', 'toggleSavedIdeaDetails'
     ]
   };
 
@@ -557,10 +559,237 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  /* =====================================================================
+   * 보관함 — 로그인 상태에서만 서버에 저장한다. 로그아웃 상태는 지금까지와
+   * 완전히 동일하게 localStorage만 쓴다(데모가 로그인 없이도 그대로
+   * 돌아가야 한다).
+   *
+   * ★ 전략: 디자인의 원본 함수(toggleSaveKeyword 등)를 다시 구현하지
+   *   않는다. 배열 변경 + 화면 재렌더 로직은 원본이 이미 정확히 하고
+   *   있으므로, 로그인 중에는 **원본을 그대로 호출하되 localStorage.setItem
+   *   만 일시적으로 무력화**하고, 그 결과(배열이 어떻게 바뀌었는지)를 보고
+   *   서버에 동기화한다. 이러면 원본 함수의 토스트 문구·재렌더 호출까지
+   *   전부 공짜로 따라온다.
+   * ===================================================================== */
+
+  function withLocalStorageSuppressed(fn) {
+    var original;
+    try {
+      original = window.localStorage.setItem.bind(window.localStorage);
+      window.localStorage.setItem = function () {};
+    } catch (e) {
+      // localStorage 자체를 못 쓰는 환경(사파일 프라이빗 모드 등) — 그냥 원래 함수를 부른다.
+      return fn();
+    }
+    try {
+      return fn();
+    } finally {
+      try { window.localStorage.setItem = original; } catch (e) { /* 무시 */ }
+    }
+  }
+
+  function libToast(msg) {
+    if (typeof window.showToast === 'function') window.showToast(msg);
+  }
+
+  /** 서버에서 받은 보관함 행을 화면이 기대하는 camelCase 모양으로 편다.
+   * idea_key/keyword_id를 필드로 남겨야 나중에 삭제·수정 때 쓸 수 있다. */
+  function rowToKeywordItem(row) {
+    var item = {};
+    var payload = row.payload || {};
+    for (var k in payload) item[k] = payload[k];
+    item.id = row.keyword_id;
+    item.name = row.name;
+    item.category = row.category;
+    return item;
+  }
+
+  function rowToIdeaItem(row) {
+    var item = {};
+    var payload = row.payload || {};
+    for (var k in payload) item[k] = payload[k];
+    item.idea_key = row.idea_key;
+    item.period = row.period;
+    item.periodKey = row.period;
+    return item;
+  }
+
+  function rerenderAfterLibraryChange() {
+    if (typeof window.updateSavedCounts === 'function') window.updateSavedCounts();
+    if (typeof window.renderBestKeywordsGrid === 'function') { try { window.renderBestKeywordsGrid(); } catch (e) {} }
+    if (typeof window.renderWeeklySlider === 'function') { try { window.renderWeeklySlider(); } catch (e) {} }
+    var savedView = document.getElementById('view-saved');
+    if (savedView && savedView.classList.contains('active') && typeof window.renderSavedScreen === 'function') {
+      try { window.renderSavedScreen(); } catch (e) {}
+    }
+  }
+
+  /** 로그인 상태에서 보관함 전체를 서버 기준으로 다시 채운다. 서버가
+   * 진실이므로 배열을 통째로 교체한다 — localStorage와 섞지 않는다. */
+  function loadLibrary() {
+    return Promise.all([
+      window.EUREKA.auth.apiFetchJson('/api/library/keywords'),
+      window.EUREKA.auth.apiFetchJson('/api/library/ideas')
+    ]).then(function (results) {
+      var kwRes = results[0], idRes = results[1];
+      if (kwRes.ok && kwRes.body && Array.isArray(kwRes.body.items)) {
+        savedKeywords = kwRes.body.items.map(rowToKeywordItem);
+      }
+      if (idRes.ok && idRes.body && Array.isArray(idRes.body.items)) {
+        savedIdeas = idRes.body.items.map(rowToIdeaItem);
+      }
+      rerenderAfterLibraryChange();
+    }).catch(function (err) {
+      console.warn(LOG, '보관함 불러오기 실패:', err && err.message);
+    });
+  }
+
+  /** 최초 로그인 이관. 3중 중복 방지: ① 계정별 localStorage 마커
+   * ② 서버 unique 제약(merge-duplicates) ③ 서버가 반환한 개수가 0이면
+   * 토스트를 안 띄운다. 원본 localStorage는 지우지 않는다 — 로그아웃
+   * 상태 데이터를 날리면 되돌릴 수 없다. */
+  function migrationMarkerKey(userId) {
+    return 'eureka_migrated_v1_' + userId;
+  }
+
+  function migrateLocalLibraryIfNeeded(user) {
+    if (!user) return Promise.resolve();
+    var marker = migrationMarkerKey(user.id);
+    var already = null;
+    try { already = localStorage.getItem(marker); } catch (e) { /* 접근 불가 — 매번 재시도하게 둔다 */ }
+    if (already) return Promise.resolve();
+
+    var localKw = [], localIdeas = [];
+    try { localKw = JSON.parse(localStorage.getItem('eureka_saved_keywords') || '[]'); } catch (e) {}
+    try { localIdeas = JSON.parse(localStorage.getItem('eureka_saved_ideas') || '[]'); } catch (e) {}
+
+    if (!localKw.length && !localIdeas.length) {
+      try { localStorage.setItem(marker, 'empty'); } catch (e) {}
+      return Promise.resolve();
+    }
+
+    return window.EUREKA.auth.apiFetchJson('/api/library/migrate', {
+      method: 'POST', body: { keywords: localKw, ideas: localIdeas }
+    }).then(function (r) {
+      if (!r.ok) return; // 실패하면 마커를 안 남긴다 — 다음 로그인 때 다시 시도된다.
+      try { localStorage.setItem(marker, new Date().toISOString()); } catch (e) {}
+      var n = (r.body && ((r.body.imported_keywords || 0) + (r.body.imported_ideas || 0))) || 0;
+      if (n > 0) libToast('보관함 ' + n + '건을 계정으로 옮겼어요.');
+    }).catch(function () { /* 조용히 넘어간다 — 마커가 없으니 다음 로그인 때 재시도 */ });
+  }
+
+  /* ── 원본 함수 캡처 + 덮어쓰기 ────────────────────────────────────── */
+
+  function installLibraryOverrides() {
+    var originalToggleSaveKeyword = window.toggleSaveKeyword;
+    var originalToggleSaveIdea = window.toggleSaveIdea;
+    var originalRemoveSavedKeyword = window.removeSavedKeyword;
+    var originalRemoveSavedIdea = window.removeSavedIdea;
+    var originalSyncSavedIdea = window.syncSavedIdea;
+
+    if (typeof originalToggleSaveKeyword === 'function') {
+      window.toggleSaveKeyword = function (e, id) {
+        if (!isLoggedIn()) return originalToggleSaveKeyword(e, id);
+        var item = (typeof window.findKeywordById === 'function') ? window.findKeywordById(id) : null;
+        var wasSaved = savedKeywords.some(function (k) { return k.id === id; });
+        withLocalStorageSuppressed(function () { originalToggleSaveKeyword(e, id); });
+        if (wasSaved) {
+          window.EUREKA.auth.apiFetchJson('/api/library/keywords/' + encodeURIComponent(id), { method: 'DELETE' })
+            .then(function (r) { if (!r.ok) libToast('보관함 동기화에 실패했어요. 잠시 후 다시 시도해주세요.'); });
+        } else if (item) {
+          window.EUREKA.auth.apiFetchJson('/api/library/keywords', {
+            method: 'POST',
+            body: { keyword_id: id, name: item.name, category: item.category || '', payload: item }
+          }).then(function (r) {
+            if (!r.ok) {
+              withLocalStorageSuppressed(function () { originalToggleSaveKeyword(null, id); });
+              libToast('보관함 동기화에 실패했어요. 잠시 후 다시 시도해주세요.');
+            }
+          });
+        }
+      };
+    }
+
+    if (typeof originalToggleSaveIdea === 'function') {
+      window.toggleSaveIdea = function (btn, index) {
+        if (!isLoggedIn()) return originalToggleSaveIdea(btn, index);
+        var idea = generatedIdeas[index];
+        var existing = savedIdeas.filter(function (i) { return i.name === idea.name; })[0];
+        var wasSaved = !!existing;
+        var ideaKeyToDelete = existing ? existing.idea_key : null;
+
+        withLocalStorageSuppressed(function () { originalToggleSaveIdea(btn, index); });
+
+        if (wasSaved) {
+          if (!ideaKeyToDelete) return; // 서버 동기 전 로컬에만 있던 항목 — 삭제할 서버 행이 없다
+          window.EUREKA.auth.apiFetchJson('/api/library/ideas/' + encodeURIComponent(ideaKeyToDelete), { method: 'DELETE' })
+            .then(function (r) { if (!r.ok) libToast('보관함 동기화에 실패했어요. 잠시 후 다시 시도해주세요.'); });
+        } else {
+          var newEntry = savedIdeas[savedIdeas.length - 1];
+          if (!newEntry) return;
+          window.EUREKA.auth.apiFetchJson('/api/library/ideas', {
+            method: 'POST',
+            body: {
+              keyword_id: (typeof selectedKeyword !== 'undefined' && selectedKeyword) ? selectedKeyword.id : '',
+              keyword_name: newEntry.keyword || '',
+              name: newEntry.name,
+              platform: (typeof configSettings !== 'undefined' && configSettings.platform) || '',
+              type: (typeof configSettings !== 'undefined' && configSettings.type) || '',
+              period: newEntry.periodKey || 'day',
+              payload: newEntry
+            }
+          }).then(function (r) {
+            if (r.ok && r.body && r.body.idea_key) {
+              newEntry.idea_key = r.body.idea_key;
+            } else if (!r.ok) {
+              withLocalStorageSuppressed(function () { originalToggleSaveIdea(btn, index); });
+              libToast('보관함 동기화에 실패했어요. 잠시 후 다시 시도해주세요.');
+            }
+          });
+        }
+      };
+    }
+
+    if (typeof originalRemoveSavedKeyword === 'function') {
+      window.removeSavedKeyword = function (i) {
+        if (!isLoggedIn()) return originalRemoveSavedKeyword(i);
+        var item = savedKeywords[i];
+        withLocalStorageSuppressed(function () { originalRemoveSavedKeyword(i); });
+        if (item) {
+          window.EUREKA.auth.apiFetchJson('/api/library/keywords/' + encodeURIComponent(item.id), { method: 'DELETE' })
+            .then(function (r) { if (!r.ok) libToast('삭제 동기화에 실패했어요. 새로고침 후 다시 시도해주세요.'); });
+        }
+      };
+    }
+
+    if (typeof originalRemoveSavedIdea === 'function') {
+      window.removeSavedIdea = function (i) {
+        if (!isLoggedIn()) return originalRemoveSavedIdea(i);
+        var item = savedIdeas[i];
+        withLocalStorageSuppressed(function () { originalRemoveSavedIdea(i); });
+        if (item && item.idea_key) {
+          window.EUREKA.auth.apiFetchJson('/api/library/ideas/' + encodeURIComponent(item.idea_key), { method: 'DELETE' })
+            .then(function (r) { if (!r.ok) libToast('삭제 동기화에 실패했어요. 새로고침 후 다시 시도해주세요.'); });
+        }
+      };
+    }
+
+    if (typeof originalSyncSavedIdea === 'function') {
+      window.syncSavedIdea = function (idea) {
+        if (!isLoggedIn()) return originalSyncSavedIdea(idea);
+        withLocalStorageSuppressed(function () { originalSyncSavedIdea(idea); });
+        var entry = savedIdeas.filter(function (s) { return s.name === idea.name; })[0];
+        if (entry && entry.idea_key) {
+          window.EUREKA.auth.apiFetchJson('/api/library/ideas/' + encodeURIComponent(entry.idea_key), {
+            method: 'PATCH', body: { payload: entry }
+          }).then(function (r) { if (!r.ok) libToast('저장된 아이디어 동기화에 실패했어요.'); });
+        }
+      };
+    }
+  }
+
   /* ── 바깥에 내보내는 것 ─────────────────────────────────────────────
-   * window.EUREKA 하나만 추가한다 — 디자인 이름과 부딪힐 일이 없다.
-   * 다음 단계(보관함·새로고침 쿼터)가 auth.onSignedIn/onSignedOut,
-   * auth.apiFetchJson 에 올라탄다. */
+   * window.EUREKA 하나만 추가한다 — 디자인 이름과 부딪힐 일이 없다. */
 
   window.EUREKA = {
     version: VERSION,
@@ -633,7 +862,18 @@
         }
         injectStyleOnce();
         mountHeaderChip();
+        installLibraryOverrides();
         bootSession();
+        // 로그인이 확인될 때마다(부팅 시 기존 세션 포함) 이관 후 서버 기준으로 로드.
+        window.EUREKA.auth.onSignedIn(function (user) {
+          migrateLocalLibraryIfNeeded(user).then(function () { return loadLibrary(); });
+        });
+        // 로그아웃하면 화면은 빈 보관함으로 — localStorage는 건드리지 않는다.
+        window.EUREKA.auth.onSignedOut(function () {
+          savedKeywords = [];
+          savedIdeas = [];
+          rerenderAfterLibraryChange();
+        });
         if (isDebug) console.info(LOG, 'boot 완료', window.EUREKA.describe());
       }).catch(function (err) {
         // /api/config 자체가 없거나 네트워크 문제 — 로그인 기능만 없이 계속한다.
