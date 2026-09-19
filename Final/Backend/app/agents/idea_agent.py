@@ -52,6 +52,10 @@ class IdeaAgentInput(BaseModel):
     platform: str  # 프론트 칩 라벨 그대로 (예: "모바일 앱")
     type: str      # 프론트 칩 라벨 그대로 (예: "재미")
     count: int = 3
+    # 새로고침 전용. 둘 다 기본값이 있어 기존 호출부(idea_routes.py의
+    # 최초 생성 경로)는 아무것도 안 바뀐다.
+    exclude: list[dict] = []       # 이전에 보여준 아이디어 — LLM 프롬프트에 "이거 말고" 로 들어간다
+    variation: int = 0             # 폴백이 다시 불릴 때 접근·문구를 바꾸는 결정적 인덱스
 
 
 def _raw_to_spec(raw: dict) -> IdeaSpec:
@@ -96,7 +100,7 @@ class IdeaAgent(Agent[IdeaAgentInput, IdeaSet]):
         self.report(1)
         try:
             raw_list = idea_tool.complete_ideas_json(
-                build_idea_prompt(kw, axis, count)
+                build_idea_prompt(kw, axis, count, exclude=data.exclude or None)
             )
             source = "llm"
         except (LLMOffline, LLMError, ValueError):
@@ -119,7 +123,7 @@ class IdeaAgent(Agent[IdeaAgentInput, IdeaSet]):
 
         if len(checked) < count:
             missing = count - len(checked)
-            fallback_ideas = fallback.build(kw["name"], axis, count=missing)
+            fallback_ideas = fallback.build(kw["name"], axis, count=missing, variation=data.variation)
             if source == "llm" and checked:
                 warnings.append(f"LLM이 {missing}개를 채우지 못해 예시 아이디어로 보충했습니다")
             elif source == "llm":
