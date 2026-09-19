@@ -37,7 +37,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '0.3.0-library';    // 5단계: 로그인 UI + 보관함 서버 저장 + 이관.
+  var VERSION = '0.4.0-refresh';    // 7단계: + 새로고침 쿼터 버튼.
   var LOG = '[eureka]';
 
   /* ── 디자인 HTML 과의 계약 ──────────────────────────────────────────
@@ -62,7 +62,9 @@
       'renderIdeasTabs', 'renderSavedScreen', 'showIdeaDetail',
       'showToast', 'navigateTo', 'esc', 'aiToolsFor',
       'findKeywordById', 'renderBestKeywordsGrid', 'renderWeeklySlider',
-      'renderDetailScreen', 'toggleSavedIdeaDetails'
+      'renderDetailScreen', 'toggleSavedIdeaDetails',
+      'startLoadingMessages', 'buildFallbackIdeaDrafts', 'buildPromptForPeriod',
+      'toIdeaView', 'renderIdeaResults'
     ]
   };
 
@@ -788,6 +790,173 @@
     }
   }
 
+  /* =====================================================================
+   * 새로고침 — 로그인 후 키워드당 정해진 횟수만큼 아이디어 3개를 다시
+   * 뽑는다. 실제 판정은 서버(app/api/idea_routes.py, DB 원자적 함수)가
+   * 전부 한다 — 여기는 버튼 상태를 그 결과에 맞춰 그리기만 한다.
+   * ===================================================================== */
+
+  var lastRefreshInfo = null;  // 마지막 생성 응답의 {applied,reason,used,limit,variant}
+
+  function generationCtx() {
+    return { keyword: selectedKeyword.name, platform: configSettings.platform, type: configSettings.type };
+  }
+
+  function errorCodeOf(err) {
+    return err && err.detail && err.detail.detail && err.detail.detail.error_code;
+  }
+
+  /** 디자인의 executeIdeaGeneration()을 완전히 대체한다(부분 재사용이 안
+   * 되는 이유: 원본은 인자를 안 받고 요청 바디도 고정이라, refresh 필드와
+   * Authorization 헤더를 끼워 넣을 자리가 없다). 일반 생성 버튼의
+   * onclick="executeIdeaGeneration()" 은 opts가 없어도 그대로 동작한다
+   * (refresh 기본값 false). */
+  window.executeIdeaGeneration = function (opts) {
+    opts = opts || {};
+    var isRefresh = !!opts.refresh;
+
+    navigateTo('result');
+    document.getElementById('result-loading-screen').style.display = 'block';
+    document.getElementById('result-main-screen').style.display = 'none';
+
+    var ctx = generationCtx();
+    var period = configSettings.period;
+    var stopLoading = startLoadingMessages(ctx, period);
+    isGenerating = true;
+    updateRefreshButton();  // 이미 화면에 있던 버튼이 있다면 "만드는 중"으로 즉시 반영
+
+    return apiFetch('/api/trends/' + selectedKeyword.id + '/ideas', {
+      method: 'POST',
+      body: { platform: ctx.platform, type: ctx.type, period: period, count: 3, refresh: isRefresh }
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (text) {
+          var detail = null;
+          try { detail = JSON.parse(text); } catch (e) { /* JSON이 아닐 수도 있다 */ }
+          var err = new Error('아이디어 생성 요청 실패: ' + res.status);
+          err.status = res.status;
+          err.detail = detail;
+          throw err;
+        });
+      }
+      return res.json();
+    }).then(function (data) {
+      return stopLoading().then(function () { return data; });
+    }).then(function (data) {
+      var periodKey = PERIOD_KEY[period] || 'day';
+      var ideas = data.ideas.map(function (x) { return toIdeaView(x, periodKey); });
+      lastRefreshInfo = data.refresh || null;
+      renderIdeaResults(ideas, { source: data.source });
+    }).catch(function (err) {
+      console.warn(LOG, '[아이디어 생성] API 호출 실패:', err && err.message);
+      if (isRefresh) {
+        // 새로고침 실패는 화면을 폴백 데이터로 덮어쓰지 않는다 — 지금
+        // 보이는(직전에 성공한) 아이디어를 그대로 둔다.
+        var code = errorCodeOf(err);
+        var msg = '새로고침에 실패했어요. 잠시 후 다시 시도해주세요.';
+        if (code === 'refresh_requires_login') msg = '로그인 후 새로고침할 수 있어요.';
+        else if (code === 'quota_spent') msg = '이 키워드는 새로고침을 모두 사용했어요.';
+        else if (code === 'refresh_unavailable') msg = '지금은 새로고침을 쓸 수 없어요.';
+        return stopLoading().then(function () { libToast(msg); });
+      }
+      return stopLoading().then(function () {
+        var drafts = buildFallbackIdeaDrafts(ctx);
+        var ideas = drafts.map(function (d) {
+          var copy = {};
+          for (var k in d) copy[k] = d[k];
+          copy.prompt = buildPromptForPeriod(d, ctx, period);
+          return copy;
+        });
+        lastRefreshInfo = null;
+        renderIdeaResults(ideas, { source: 'fallback' });
+      });
+    }).then(function () {
+      isGenerating = false;
+      updateRefreshButton();
+    }).catch(function (e) {
+      isGenerating = false;
+      updateRefreshButton();
+      console.error(LOG, '아이디어 생성 처리 중 예기치 못한 오류:', e);
+    });
+  };
+
+  function refreshButtonIconSvg() {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<polyline points="1 4 1 10 7 10"></polyline>' +
+      '<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>';
+  }
+
+  /** #ideas-tabs-container 는 renderIdeasTabs()가 매번 innerHTML로 갈아
+   *치우므로, 안에 넣지 않고 컨테이너 자체에 절대위치로 얹는다. 컨테이너의
+   * innerHTML 교체는 자식만 바꾸므로 컨테이너 자신의 인라인 style은
+   * 살아남는다. */
+  function mountRefreshButton() {
+    var box = document.getElementById(SELECTORS.ideaTabsBox);
+    if (!box) return;
+    if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+
+    var btn = document.getElementById('eureka-refresh-btn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'eureka-refresh-btn';
+      btn.type = 'button';
+      btn.className = 'figma-btn-edit-feature';
+      btn.style.cssText = 'position:absolute; top:14px; right:18px; z-index:3;';
+      btn.innerHTML = refreshButtonIconSvg() + '<span></span>';
+      btn.addEventListener('click', onRefreshButtonClick);
+      box.appendChild(btn);
+    }
+    updateRefreshButton();
+  }
+
+  function onRefreshButtonClick() {
+    if (isGenerating) return;
+    if (!isLoggedIn()) { openAuthModal('signin'); return; }
+    if (lastRefreshInfo && lastRefreshInfo.used >= lastRefreshInfo.limit) return;
+    window.executeIdeaGeneration({ refresh: true });
+  }
+
+  function updateRefreshButton() {
+    var btn = document.getElementById('eureka-refresh-btn');
+    if (!btn) return;
+    var label = btn.querySelector('span');
+
+    if (!authEnabled) { btn.style.display = 'none'; return; }
+    btn.style.display = '';
+    btn.title = '';
+
+    if (isGenerating) {
+      btn.disabled = true;
+      btn.style.opacity = '0.6'; btn.style.cursor = 'default';
+      if (label) label.textContent = '새 아이디어를 만드는 중...';
+      return;
+    }
+    if (!isLoggedIn()) {
+      btn.disabled = false;
+      btn.style.opacity = ''; btn.style.cursor = 'pointer';
+      if (label) label.textContent = '로그인하고 새로고침';
+      return;
+    }
+    var used = lastRefreshInfo ? lastRefreshInfo.used : 0;
+    var limit = lastRefreshInfo ? lastRefreshInfo.limit : settings_REFRESH_QUOTA_DEFAULT;
+    if (used >= limit) {
+      btn.disabled = true;
+      btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed';
+      btn.title = '키워드당 ' + limit + '회만 가능해요';
+      if (label) label.textContent = '새로고침을 모두 사용했어요';
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = ''; btn.style.cursor = 'pointer';
+      if (label) label.textContent = '아이디어 새로고침 (' + (limit - used) + '회 남음)';
+    }
+  }
+
+  // 서버가 아직 응답을 안 준 시점(막 로그인 직후 등)의 기본 표시값.
+  // 실제 한도는 항상 서버(GET /api/config가 아니라 매 생성 응답의
+  // refresh 블록)가 최종 권위를 갖는다 — 이건 그 전까지의 자리표시일 뿐.
+  var settings_REFRESH_QUOTA_DEFAULT = 1;
+
   /* ── 바깥에 내보내는 것 ─────────────────────────────────────────────
    * window.EUREKA 하나만 추가한다 — 디자인 이름과 부딪힐 일이 없다. */
 
@@ -863,16 +1032,20 @@
         injectStyleOnce();
         mountHeaderChip();
         installLibraryOverrides();
+        window.EUREKA.onTabsRender(mountRefreshButton);
         bootSession();
         // 로그인이 확인될 때마다(부팅 시 기존 세션 포함) 이관 후 서버 기준으로 로드.
         window.EUREKA.auth.onSignedIn(function (user) {
           migrateLocalLibraryIfNeeded(user).then(function () { return loadLibrary(); });
+          updateRefreshButton();
         });
         // 로그아웃하면 화면은 빈 보관함으로 — localStorage는 건드리지 않는다.
         window.EUREKA.auth.onSignedOut(function () {
           savedKeywords = [];
           savedIdeas = [];
+          lastRefreshInfo = null;
           rerenderAfterLibraryChange();
+          updateRefreshButton();
         });
         if (isDebug) console.info(LOG, 'boot 완료', window.EUREKA.describe());
       }).catch(function (err) {

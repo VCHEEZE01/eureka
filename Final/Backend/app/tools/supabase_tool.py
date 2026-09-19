@@ -157,6 +157,25 @@ def delete_saved_idea(user_id: str, idea_key: str) -> None:
 
 # ── 새로고침 쿼터 (원자적 RPC — db/001_auth_library_quota.sql 참고) ──
 
+def get_refresh_quota(user_id: str, keyword_id: str, default_limit: int) -> dict:
+    """소비하지 않고 현재 상태만 본다 — 새로고침 버튼을 그릴 때, 그리고
+    캐시 variant를 정할 때 쓴다. 행이 아직 없으면(한 번도 새로고침 안
+    했으면) used=0으로 본다."""
+    with _client() as c:
+        r = _check(c.get(
+            "/idea_refresh_quota",
+            headers=_base_headers(),
+            params={
+                "user_id": f"eq.{user_id}", "keyword_id": f"eq.{keyword_id}",
+                "select": "used,quota_limit",
+            },
+        ))
+        rows = r.json()
+        if rows:
+            return {"used": rows[0]["used"], "limit": rows[0]["quota_limit"]}
+        return {"used": 0, "limit": default_limit}
+
+
 def consume_refresh_quota(user_id: str, keyword_id: str, limit: int) -> dict:
     """returns {"o_allowed": bool, "o_used": int, "o_limit": int}."""
     with _client() as c:
