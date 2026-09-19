@@ -21,6 +21,14 @@ router = APIRouter()
 # 데이터로 동작한다(그것도 의도된 동작).
 _TREND_HTML_PATH = Path(__file__).resolve().parent.parent.parent.parent / "Frontend" / "v1-trend-incubator.html"
 
+# 디자인과 분리한 연동 계층. 팀원이 새 디자인 HTML 을 줘도 이 파일은
+# 그대로 살아남는다(자세한 건 Final/Frontend/INTEGRATION.md).
+#
+# ★ StaticFiles 로 Frontend/ 를 통째로 마운트하지 않는다 — 그 폴더엔
+#   .env.example, package.json, src/, node_modules/, .next/ 가 같이 있어서
+#   전부 공개돼 버린다. 파일 하나면 라우트 하나로 충분하다.
+_APP_JS_PATH = _TREND_HTML_PATH.parent / "eureka-app.js"
+
 
 @router.get("/health")
 def health() -> dict:
@@ -32,6 +40,19 @@ def trend_incubator_app():
     if not _TREND_HTML_PATH.is_file():
         raise HTTPException(status_code=503, detail="트렌드 인큐베이터 화면 파일을 찾을 수 없습니다")
     return FileResponse(_TREND_HTML_PATH, media_type="text/html", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/eureka-app.js", include_in_schema=False)
+def eureka_app_js():
+    # no-store 는 HTML 과 같은 이유다 — 디자인을 다시 이식한 직후 브라우저가
+    # 옛 JS 를 캐시에서 꺼내 쓰면 "분명 고쳤는데 안 바뀐다"가 된다.
+    if not _APP_JS_PATH.is_file():
+        raise HTTPException(status_code=503, detail="eureka-app.js 를 찾을 수 없습니다")
+    return FileResponse(
+        _APP_JS_PATH,
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # TODO: GET  /problems           문제 목록 (F03)

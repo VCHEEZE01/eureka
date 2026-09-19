@@ -3653,6 +3653,21 @@
       100% { transform: rotate(360deg); }
     }
   </style>
+
+  <!-- ===================================================================
+       연동 계층 — 새 디자인 HTML 을 받으면 이 두 줄을 그대로 옮겨 붙이세요.
+       절차: Final/Frontend/INTEGRATION.md
+
+       defer 를 <head> 에 쓰는 이유: 문서 파싱이 전부 끝난 뒤 실행되므로
+       아래 <script> 블록이 어디에 있든 항상 그 뒤에 돕니다(4천 줄짜리
+       블록의 끝을 찾아다닐 필요가 없습니다). 서로는 문서 순서대로
+       실행되어 SDK 가 먼저 준비되고, DOMContentLoaded 앞에 돌아
+       디자인 초기화가 먼저·연동이 나중이 됩니다.
+       ★ type="module" 로 바꾸지 마세요 — 자체 스코프가 생겨 디자인의
+         전역(savedIdeas 등)에 접근할 수 없게 됩니다.
+       =================================================================== -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+  <script defer src="/eureka-app.js"></script>
 </head>
 
 <body>
