@@ -28,12 +28,16 @@
  *     중간에 터지면 덮어쓰기가 반쯤만 설치된 상태로 남는데, 이건
  *     아예 설치 안 된 것보다 나쁘다(어디까지 바뀐 건지 알 수 없다).
  *     그래서 부팅 전체가 try/catch 안에 있다.
+ *
+ *  4. supabase-js 의 전역 이름은 `supabase` 다.
+ *     `const supabase = supabase.createClient(...)` 라고 쓰면 TDZ
+ *     오류가 난다. 클라이언트는 `window.sb` 에 둔다(아래 참고).
  * ===================================================================== */
 
 (function () {
   'use strict';
 
-  var VERSION = '0.1.0-seam';       // 단계 1: 이음매만. 동작 변경 없음.
+  var VERSION = '0.2.0-auth';       // 4단계: 로그인 UI. 보관함 서버 저장은 아직.
   var LOG = '[eureka]';
 
   /* ── 디자인 HTML 과의 계약 ──────────────────────────────────────────
@@ -66,6 +70,11 @@
     ideaDetailBox: 'active-idea-card-container',
     toast: 'toast-popup'
   };
+
+  // 헤더 로그인 칩을 꽂을 자리 후보. 위에서부터 시도하고, 전부 없으면
+  // 화면 우측 상단에 고정 위치로 띄운다 — 새 디자인이 header 구조를
+  // 바꿔도 아예 안 뜨는 최악은 피한다.
+  var HEADER_CHIP_TARGETS = ['.fixed-gnb-inner', 'header > div', 'header'];
 
   /* ── 환경 판정 ─────────────────────────────────────────────────────
    * file:// 로 더블클릭해 열면 서버 API 도 Supabase 도 못 쓴다.
@@ -140,7 +149,7 @@
    * #ideas-tabs-container 는 renderIdeasTabs() 가 innerHTML 로 통째
    * 갈아치운다. 그 안에 붙인 요소는 카드를 전환할 때마다 사라진다.
    * 그래서 대체하지 않고 **감싸서**, 매 렌더 뒤에 다시 붙일 기회를 만든다.
-   * (지금은 훅만 있고 붙이는 건 없다 — 새로고침 버튼이 여기 올라탄다.) */
+   * (새로고침 버튼이 여기 올라탄다 — 다음 단계.) */
 
   var afterTabsRender = [];
 
@@ -167,9 +176,391 @@
     return true;
   }
 
+  /* =====================================================================
+   * 인증 — 회원가입/로그인/로그아웃은 브라우저에서 supabase-js가 전담한다.
+   * FastAPI는 비밀번호를 보지도, 토큰을 발급하지도 않는다(검증만 한다,
+   * app/core/auth.py). GET /api/config 로 anon key를 받아온다 — HTML에
+   * 박아두지 않는 이유는 새 디자인이 와도 잃어버릴 수 없게 하기 위해서고,
+   * auth_enabled:false 일 때 Supabase 없이도 깔끔히 도는 모드를 얻기
+   * 위해서다.
+   * ===================================================================== */
+
+  var authEnabled = false;
+  var currentSession = null;          // supabase-js Session 객체 또는 null
+  var signedInHandlers = [];          // 로그인 성공(세션 확인 포함) 시 부를 함수들
+  var signedOutHandlers = [];         // 로그아웃 시 부를 함수들
+
+  function isLoggedIn() {
+    return !!(currentSession && currentSession.access_token);
+  }
+
+  function currentUser() {
+    if (!currentSession || !currentSession.user) return null;
+    return { id: currentSession.user.id, email: currentSession.user.email || '' };
+  }
+
+  function fireHandlers(list) {
+    list.forEach(function (fn) {
+      try { fn(currentUser()); } catch (e) { console.warn(LOG, '인증 콜백 실패:', e && e.message); }
+    });
+  }
+
+  /**
+   * apiFetch(path, opts) — 서버 API 호출용 fetch 래퍼.
+   *   - 매 요청 직전에 getSession() 을 불러 access_token 을 얻는다.
+   *     (변수에 캐시하지 않는 이유: 탭을 오래 열어두면 1시간 뒤 토큰이
+   *     만료되는데, supabase-js가 만료 직전 자동 갱신한 최신 토큰을
+   *     매번 가져와야 그 문제가 안 생긴다.)
+   *   - opts.body 가 문자열이 아니면 JSON으로 인코딩하고 Content-Type을 단다.
+   *   - 401을 한 번 받으면 refreshSession() 후 딱 한 번만 재시도한다.
+   */
+  function getFreshAccessToken() {
+    if (!authEnabled || !window.sb) return Promise.resolve(null);
+    return window.sb.auth.getSession().then(function (r) {
+      var session = r && r.data && r.data.session;
+      return session ? session.access_token : null;
+    }).catch(function () { return null; });
+  }
+
+  function buildRequest(opts, token) {
+    var headers = {};
+    for (var k in (opts.headers || {})) headers[k] = opts.headers[k];
+    var body = opts.body;
+    if (body !== undefined && body !== null && typeof body !== 'string' && !(body instanceof FormData)) {
+      body = JSON.stringify(body);
+      headers['Content-Type'] = 'application/json';
+    }
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return { method: opts.method || 'GET', headers: headers, body: body, signal: opts.signal };
+  }
+
+  function apiFetch(path, opts) {
+    opts = opts || {};
+    return getFreshAccessToken().then(function (token) {
+      return fetch(path, buildRequest(opts, token));
+    }).then(function (res) {
+      if (res.status !== 401 || !authEnabled || !window.sb) return res;
+      // 401 한 번은 토큰 갱신 후 재시도. 그래도 401이면 그대로 돌려준다
+      // (호출부가 "로그인 필요"로 처리하면 된다 — 여기서 강제 로그아웃하지 않는다).
+      return window.sb.auth.refreshSession().then(function () {
+        return getFreshAccessToken();
+      }).catch(function () { return null; }).then(function (retryToken) {
+        return fetch(path, buildRequest(opts, retryToken));
+      });
+    });
+  }
+
+  /** apiFetch + JSON 파싱까지. 실패해도 throw하지 않고 {ok:false,...}를 준다
+   * — 호출부가 매번 try/catch를 안 써도 되게. */
+  function apiFetchJson(path, opts) {
+    return apiFetch(path, opts).then(function (res) {
+      return res.text().then(function (text) {
+        var body = null;
+        try { body = text ? JSON.parse(text) : null; } catch (e) { /* JSON이 아닐 수도 있다 */ }
+        return { ok: res.ok, status: res.status, body: body };
+      });
+    }).catch(function (err) {
+      return { ok: false, status: 0, body: null, networkError: err };
+    });
+  }
+
+  /* ── Supabase 클라이언트 초기화 ───────────────────────────────────── */
+
+  function initSupabase(cfg) {
+    if (!cfg || !cfg.auth_enabled || !cfg.supabase_url || !cfg.supabase_anon_key) {
+      return false;
+    }
+    if (typeof window.supabase === 'undefined' || typeof window.supabase.createClient !== 'function') {
+      console.warn(LOG, 'Supabase SDK가 로드되지 않았습니다(CDN 차단 등) — 로그인 기능을 건너뜁니다.');
+      return false;
+    }
+    // ★ window.sb — window.supabase 는 SDK 전역 이름이라 그대로 덮어쓰면 안 된다.
+    window.sb = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+    });
+    return true;
+  }
+
+  function bootSession() {
+    window.sb.auth.getSession().then(function (r) {
+      currentSession = (r && r.data && r.data.session) || null;
+      renderHeaderChip();
+      if (currentSession) fireHandlers(signedInHandlers);
+    });
+    window.sb.auth.onAuthStateChange(function (event, session) {
+      var wasLoggedIn = isLoggedIn();
+      currentSession = session || null;
+      renderHeaderChip();
+      if (event === 'SIGNED_IN' || (isLoggedIn() && !wasLoggedIn)) {
+        fireHandlers(signedInHandlers);
+      } else if (event === 'SIGNED_OUT' || (!isLoggedIn() && wasLoggedIn)) {
+        fireHandlers(signedOutHandlers);
+      }
+    });
+  }
+
+  /* ── 인증 UI — 어떤 디자인에도 없으므로 JS가 직접 주입한다 ────────── */
+
+  var AUTH_STYLE = '' +
+    '#eureka-auth-root{all:initial;}' +
+    '#eureka-auth-root *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;}' +
+    '#eureka-auth-root .eureka-overlay{position:fixed;inset:0;background:rgba(15,15,20,.5);' +
+      'display:flex;align-items:center;justify-content:center;z-index:100000;}' +
+    '#eureka-auth-root .eureka-overlay[hidden]{display:none;}' +
+    '#eureka-auth-root .eureka-modal{background:#fff;border-radius:20px;padding:32px;width:340px;' +
+      'max-width:calc(100vw - 32px);box-shadow:0 20px 60px rgba(0,0,0,.25);position:relative;}' +
+    '#eureka-auth-root .eureka-modal-close{position:absolute;top:14px;right:16px;border:none;' +
+      'background:none;font-size:20px;line-height:1;cursor:pointer;color:#94A3B8;padding:4px;}' +
+    '#eureka-auth-root .eureka-modal-close:hover{color:#334155;}' +
+    '#eureka-auth-root .eureka-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#F4F4F6;' +
+      'border-radius:10px;padding:4px;}' +
+    '#eureka-auth-root .eureka-tab{flex:1;border:none;background:none;padding:9px 0;border-radius:8px;' +
+      'font-size:14px;font-weight:700;color:#71717A;cursor:pointer;}' +
+    '#eureka-auth-root .eureka-tab.active{background:#fff;color:#6B42FF;box-shadow:0 1px 3px rgba(0,0,0,.08);}' +
+    '#eureka-auth-root .eureka-auth-form{display:flex;flex-direction:column;gap:12px;}' +
+    '#eureka-auth-root .eureka-field-label{font-size:13px;font-weight:600;color:#3F3F46;display:block;margin-bottom:6px;}' +
+    '#eureka-auth-root .eureka-auth-form input{width:100%;padding:11px 13px;border:1.5px solid #E4E4E7;' +
+      'border-radius:10px;font-size:14px;outline:none;}' +
+    '#eureka-auth-root .eureka-auth-form input:focus{border-color:#6B42FF;}' +
+    '#eureka-auth-root .eureka-auth-error{color:#DC2626;font-size:13px;margin:0;min-height:0;}' +
+    '#eureka-auth-root .eureka-auth-error:empty{display:none;}' +
+    '#eureka-auth-root .eureka-auth-hint{color:#16A34A;font-size:13px;margin:0;}' +
+    '#eureka-auth-root .eureka-auth-hint:empty{display:none;}' +
+    '#eureka-auth-root .eureka-auth-submit{margin-top:4px;background:#6B42FF;color:#fff;border:none;' +
+      'border-radius:10px;padding:12px 0;font-size:15px;font-weight:700;cursor:pointer;}' +
+    '#eureka-auth-root .eureka-auth-submit:disabled{opacity:.6;cursor:default;}' +
+    '#eureka-auth-root .eureka-auth-submit:not(:disabled):hover{background:#5B34E0;}' +
+    '.eureka-header-chip{display:flex;align-items:center;gap:10px;margin-left:auto;}' +
+    '.eureka-login-btn{background:#6B42FF;color:#fff;border:none;border-radius:999px;padding:8px 18px;' +
+      'font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}' +
+    '.eureka-login-btn:hover{background:#5B34E0;}' +
+    '.eureka-user-chip{display:flex;align-items:center;gap:8px;}' +
+    '.eureka-user-email{font-size:13px;color:#52525B;max-width:150px;overflow:hidden;' +
+      'text-overflow:ellipsis;white-space:nowrap;}' +
+    '.eureka-logout-btn{background:none;border:1.5px solid #E4E4E7;color:#52525B;border-radius:999px;' +
+      'padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;}' +
+    '.eureka-logout-btn:hover{border-color:#CBD5E1;color:#27272A;}' +
+    '.eureka-header-chip-fallback{position:fixed;top:16px;right:16px;z-index:9999;}';
+
+  function injectStyleOnce() {
+    if (document.getElementById('eureka-auth-style')) return;
+    var style = document.createElement('style');
+    style.id = 'eureka-auth-style';
+    style.textContent = AUTH_STYLE;
+    document.head.appendChild(style);
+  }
+
+  function buildAuthRoot() {
+    if (document.getElementById('eureka-auth-root')) return;
+    var root = document.createElement('div');
+    root.id = 'eureka-auth-root';
+    root.innerHTML =
+      '<div class="eureka-overlay" id="eureka-auth-overlay" hidden>' +
+        '<div class="eureka-modal" role="dialog" aria-modal="true" aria-label="로그인">' +
+          '<button type="button" class="eureka-modal-close" id="eureka-auth-close" aria-label="닫기">&times;</button>' +
+          '<div class="eureka-modal-tabs">' +
+            '<button type="button" class="eureka-tab active" data-mode="signin">로그인</button>' +
+            '<button type="button" class="eureka-tab" data-mode="signup">회원가입</button>' +
+          '</div>' +
+          '<form class="eureka-auth-form" id="eureka-auth-form">' +
+            '<div>' +
+              '<span class="eureka-field-label">이메일</span>' +
+              '<input type="email" id="eureka-auth-email" autocomplete="email" required />' +
+            '</div>' +
+            '<div>' +
+              '<span class="eureka-field-label">비밀번호</span>' +
+              '<input type="password" id="eureka-auth-password" autocomplete="current-password" minlength="6" required />' +
+            '</div>' +
+            '<p class="eureka-auth-error" id="eureka-auth-error"></p>' +
+            '<p class="eureka-auth-hint" id="eureka-auth-hint"></p>' +
+            '<button type="submit" class="eureka-auth-submit" id="eureka-auth-submit">로그인</button>' +
+          '</form>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(root);
+
+    var overlay = document.getElementById('eureka-auth-overlay');
+    var form = document.getElementById('eureka-auth-form');
+    var tabs = root.querySelectorAll('.eureka-tab');
+
+    document.getElementById('eureka-auth-close').addEventListener('click', closeAuthModal);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeAuthModal();
+    });
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        tabs.forEach(function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        setAuthMode(tab.getAttribute('data-mode'));
+      });
+    });
+    form.addEventListener('submit', handleAuthSubmit);
+  }
+
+  var authMode = 'signin';
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    restoreSubmitLabel(mode);
+    var pwInput = document.getElementById('eureka-auth-password');
+    if (pwInput) pwInput.setAttribute('autocomplete', mode === 'signup' ? 'new-password' : 'current-password');
+    setAuthError('');
+    setAuthHint('');
+  }
+
+  /** 제출 버튼의 라벨/활성화 상태만 되돌린다. setAuthMode()와 갈라둔 이유:
+   * 로그인 실패 뒤 "처리 중..." 라벨을 되돌릴 때 setAuthMode()를 쓰면
+   * 그 함수가 끝에서 setAuthError('')/setAuthHint('')를 호출해 방금
+   * 띄운 에러 메시지가 뜨자마자 지워지는 버그가 있었다(테스트로 발견). */
+  function restoreSubmitLabel(mode) {
+    var submit = document.getElementById('eureka-auth-submit');
+    if (submit) submit.textContent = mode === 'signup' ? '회원가입' : '로그인';
+  }
+
+  function setAuthError(msg) {
+    var el = document.getElementById('eureka-auth-error');
+    if (el) el.textContent = msg || '';
+  }
+
+  function setAuthHint(msg) {
+    var el = document.getElementById('eureka-auth-hint');
+    if (el) el.textContent = msg || '';
+  }
+
+  function openAuthModal(mode) {
+    if (!authEnabled) return;
+    buildAuthRoot();
+    var overlay = document.getElementById('eureka-auth-overlay');
+    if (!overlay) return;
+    var tabs = document.querySelectorAll('#eureka-auth-root .eureka-tab');
+    tabs.forEach(function (t) {
+      t.classList.toggle('active', t.getAttribute('data-mode') === (mode || 'signin'));
+    });
+    setAuthMode(mode || 'signin');
+    overlay.hidden = false;
+    var emailInput = document.getElementById('eureka-auth-email');
+    if (emailInput) setTimeout(function () { emailInput.focus(); }, 0);
+  }
+
+  function closeAuthModal() {
+    var overlay = document.getElementById('eureka-auth-overlay');
+    if (overlay) overlay.hidden = true;
+    setAuthError('');
+    setAuthHint('');
+  }
+
+  function friendlyAuthError(message) {
+    var m = String(message || '');
+    if (/invalid login credentials/i.test(m)) return '이메일 또는 비밀번호가 올바르지 않습니다.';
+    if (/already registered|already exists|user already/i.test(m)) return '이미 가입된 이메일입니다. 로그인 해주세요.';
+    if (/password.*(least|6|characters)/i.test(m)) return '비밀번호는 6자 이상이어야 합니다.';
+    if (/rate limit/i.test(m)) return '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.';
+    return m || '알 수 없는 오류가 발생했습니다.';
+  }
+
+  function handleAuthSubmit(e) {
+    e.preventDefault();
+    if (!window.sb) return;
+    var email = (document.getElementById('eureka-auth-email') || {}).value || '';
+    var password = (document.getElementById('eureka-auth-password') || {}).value || '';
+    var submit = document.getElementById('eureka-auth-submit');
+    setAuthError('');
+    setAuthHint('');
+    if (submit) { submit.disabled = true; submit.textContent = '처리 중...'; }
+
+    var action = authMode === 'signup'
+      ? window.sb.auth.signUp({ email: email, password: password })
+      : window.sb.auth.signInWithPassword({ email: email, password: password });
+
+    action.then(function (result) {
+      var error = result && result.error;
+      if (error) {
+        setAuthError(friendlyAuthError(error.message));
+        return;
+      }
+      var session = result && result.data && result.data.session;
+      if (authMode === 'signup' && !session) {
+        // 이메일 확인이 켜져 있는 프로젝트라면 세션이 바로 안 온다.
+        // (가이드대로 껐다면 여기 안 걸리고 바로 로그인된다.)
+        setAuthHint('가입 확인 메일을 보냈습니다. 메일함을 확인해주세요.');
+        return;
+      }
+      if (typeof window.showToast === 'function') {
+        window.showToast(authMode === 'signup' ? '가입되었습니다!' : '로그인되었습니다.');
+      }
+      closeAuthModal();
+      var form = document.getElementById('eureka-auth-form');
+      if (form) form.reset();
+    }).catch(function (err) {
+      setAuthError(friendlyAuthError(err && err.message));
+    }).then(function () {
+      if (submit) { submit.disabled = false; restoreSubmitLabel(authMode); }
+    });
+  }
+
+  function handleSignOut() {
+    if (!window.sb) return;
+    window.sb.auth.signOut().then(function () {
+      if (typeof window.showToast === 'function') window.showToast('로그아웃되었습니다.');
+    });
+  }
+
+  /* ── 헤더 로그인 칩 ─────────────────────────────────────────────── */
+
+  function findHeaderMount() {
+    for (var i = 0; i < HEADER_CHIP_TARGETS.length; i++) {
+      var el = document.querySelector(HEADER_CHIP_TARGETS[i]);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function mountHeaderChip() {
+    if (document.getElementById('eureka-header-chip')) return renderHeaderChip();
+    var chip = document.createElement('div');
+    chip.className = 'eureka-header-chip';
+    chip.id = 'eureka-header-chip';
+
+    var mount = findHeaderMount();
+    if (mount) {
+      mount.appendChild(chip);
+    } else {
+      chip.classList.add('eureka-header-chip-fallback');
+      document.body.appendChild(chip);
+      console.warn(LOG, '헤더 마운트 지점을 못 찾아 고정 위치로 띄웠습니다 — SELECTORS/HEADER_CHIP_TARGETS 확인 필요.');
+    }
+    renderHeaderChip();
+  }
+
+  function renderHeaderChip() {
+    var chip = document.getElementById('eureka-header-chip');
+    if (!chip) return;
+    var user = currentUser();
+    if (user) {
+      chip.innerHTML =
+        '<div class="eureka-user-chip">' +
+          '<span class="eureka-user-email" title="' + escapeHtml(user.email) + '">' + escapeHtml(user.email) + '</span>' +
+          '<button type="button" class="eureka-logout-btn" id="eureka-logout-btn">로그아웃</button>' +
+        '</div>';
+      var btn = document.getElementById('eureka-logout-btn');
+      if (btn) btn.addEventListener('click', handleSignOut);
+    } else {
+      chip.innerHTML = '<button type="button" class="eureka-login-btn" id="eureka-login-btn">로그인</button>';
+      var loginBtn = document.getElementById('eureka-login-btn');
+      if (loginBtn) loginBtn.addEventListener('click', function () { openAuthModal('signin'); });
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   /* ── 바깥에 내보내는 것 ─────────────────────────────────────────────
-   * 다음 단계(인증·보관함·새로고침)가 여기에 올라탄다.
-   * window.EUREKA 하나만 추가한다 — 디자인 이름과 부딪힐 일이 없다. */
+   * window.EUREKA 하나만 추가한다 — 디자인 이름과 부딪힐 일이 없다.
+   * 다음 단계(보관함·새로고침 쿼터)가 auth.onSignedIn/onSignedOut,
+   * auth.apiFetchJson 에 올라탄다. */
 
   window.EUREKA = {
     version: VERSION,
@@ -183,6 +574,25 @@
       afterTabsRender.push(fn);
       try { fn(); } catch (e) { console.warn(LOG, '훅 최초 실행 실패:', e && e.message); }
     },
+    auth: {
+      isEnabled: function () { return authEnabled; },
+      isLoggedIn: isLoggedIn,
+      currentUser: currentUser,
+      openModal: openAuthModal,
+      closeModal: closeAuthModal,
+      signOut: handleSignOut,
+      apiFetch: apiFetch,
+      apiFetchJson: apiFetchJson,
+      /** 로그인 상태가 확인될 때마다(부팅 시 기존 세션 포함) 부른다. */
+      onSignedIn: function (fn) {
+        if (typeof fn !== 'function') return;
+        signedInHandlers.push(fn);
+        if (isLoggedIn()) { try { fn(currentUser()); } catch (e) { /* 무시 */ } }
+      },
+      onSignedOut: function (fn) {
+        if (typeof fn === 'function') signedOutHandlers.push(fn);
+      }
+    },
     /** 화면에 이미 떠 있는 요소를 건드리지 않고 상태만 보고 싶을 때. */
     describe: function () {
       return {
@@ -190,7 +600,10 @@
         served: isServed,
         contractOk: checkContract(),
         tabsHooked: !!(window.renderIdeasTabs && window.renderIdeasTabs.__eurekaWrapped),
-        hooks: afterTabsRender.length
+        hooks: afterTabsRender.length,
+        authEnabled: authEnabled,
+        loggedIn: isLoggedIn(),
+        user: currentUser()
       };
     }
   };
@@ -208,7 +621,24 @@
       }
       checkContract();
       installTabsHook();
-      if (isDebug) console.info(LOG, 'boot 완료', window.EUREKA.describe());
+
+      fetch('/api/config').then(function (r) {
+        if (!r.ok) throw new Error('status ' + r.status);
+        return r.json();
+      }).then(function (cfg) {
+        authEnabled = initSupabase(cfg);
+        if (!authEnabled) {
+          if (isDebug) console.info(LOG, '로그인 기능 꺼짐(auth_enabled=false 또는 SDK 미로드)');
+          return;
+        }
+        injectStyleOnce();
+        mountHeaderChip();
+        bootSession();
+        if (isDebug) console.info(LOG, 'boot 완료', window.EUREKA.describe());
+      }).catch(function (err) {
+        // /api/config 자체가 없거나 네트워크 문제 — 로그인 기능만 없이 계속한다.
+        console.warn(LOG, '/api/config 조회 실패 — 로그인 기능 없이 계속합니다:', err && err.message);
+      });
     } catch (e) {
       // 여기서 터져도 앱은 계속 돌아야 한다. 연동만 없는 상태가 된다.
       console.error(LOG, 'boot 실패 — 연동 없이 계속합니다:', e);
