@@ -2073,13 +2073,20 @@
 
     .best-card-rate-val {
       position: absolute;
-      left: 206px;
+      /* ★ 2026-09-20: 왼쪽 고정(left:206px)이던 걸 오른쪽 기준으로 바꿨다.
+         "410,000건"처럼 "전주 대비 변화율"의 "+320%"보다 훨씬 긴 값이
+         들어오면서 남은 폭(320-206=114px)에 못 들어가 "건"이 다음 줄로
+         밀렸다 — 오른쪽 여백만 고정하면 값 길이와 무관하게 카드 안에서
+         쓸 수 있는 폭이 넓어져 한 줄에 들어간다. */
+      right: 30px;
       top: 170px;
       color: #FF0004;
       font-size: 24px;
       font-family: 'Inter', sans-serif;
       font-weight: 700;
       line-height: 1;
+      text-align: right;
+      white-space: nowrap;
     }
 
     .weekly-card-rate-row {
@@ -7100,17 +7107,30 @@
       renderLandingStep(stepIdx);
     }
 
+    // ★ 2026-09-20: 첫 전환만 빠르게 해서 "이 카드가 자동으로 넘어간다"는
+    // 걸 먼저 인지시키고, 그 다음부터는 기존 2.5초 속도로 돌아간다.
+    // setInterval 하나로는 고정 간격만 가능해서, 매번 다음 지연 시간을
+    // 스스로 지정하는 setTimeout 체인으로 바꿨다.
+    const LANDING_FIRST_STEP_MS = 900;   // 최초 1회: 빠르게 — 동작을 각인시키는 용도
+    const LANDING_LOOP_STEP_MS = 2500;   // 이후 반복: 기존 속도 유지
+
     function startLandingAutoPlay() {
       stopLandingAutoPlay();
-      landingAutoPlayInterval = setInterval(() => {
-        landingStepIndex = (landingStepIndex + 1) % LANDING_STEPS_DATA.length;
-        renderLandingStep(landingStepIndex);
-      }, 2500); // 2.5초마다 자동 전환
+
+      const advance = (delay) => {
+        landingAutoPlayInterval = setTimeout(() => {
+          landingStepIndex = (landingStepIndex + 1) % LANDING_STEPS_DATA.length;
+          renderLandingStep(landingStepIndex);
+          advance(LANDING_LOOP_STEP_MS);
+        }, delay);
+      };
+
+      advance(LANDING_FIRST_STEP_MS);
     }
 
     function stopLandingAutoPlay() {
       if (landingAutoPlayInterval) {
-        clearInterval(landingAutoPlayInterval);
+        clearTimeout(landingAutoPlayInterval);
         landingAutoPlayInterval = null;
       }
     }
@@ -7163,7 +7183,7 @@
               ${item.platforms.threads ? '<span class="mini-p-icon t" title="Threads">T</span>' : ''}
             </div>
             <div class="weekly-card-rate-row">
-              <div class="weekly-card-rate-label">전주 대비</div>
+              <div class="weekly-card-rate-label">전주 대비 변화율</div>
               <div class="weekly-card-rate-val">${item.weeklyRate}</div>
             </div>
           </div>
@@ -7467,29 +7487,40 @@
         return;
       }
 
+      // ★ 2026-09-20: 카드에 뜨는 지표가 정렬 기준과 같이 바뀌도록.
+      // 이전엔 무슨 정렬이든 weeklyRate(전주 대비 변화율)만 보여줘서
+      // "월간 검색량 순"으로 정렬해도 카드엔 변화율이 떴다 — 상세
+      // 리포트(report-banner-metric-card)가 쓰는 라벨·단위와 맞췄다.
+      const METRIC_BY_SORT = {
+        search: { label: '월간 검색량', value: (item) => `${item.searchVol}건` },
+        mention: { label: '월간 소셜언급량', value: (item) => `${item.mentionVol}건` },
+        rate: { label: '전주 대비 변화율', value: (item) => item.weeklyRate },
+      };
+      const metric = METRIC_BY_SORT[currentBestSort] || METRIC_BY_SORT.rate;
+
       container.innerHTML = list.map(item => {
         const isSaved = savedKeywords.some(k => k.id === item.id);
         return `
           <div class="best-card" onclick="navigateTo('detail', '${item.id}')">
-            <button class="card-star-btn ${isSaved ? 'saved' : ''}" 
+            <button class="card-star-btn ${isSaved ? 'saved' : ''}"
                     onclick="toggleSaveKeyword(event, '${item.id}')"
                     title="${isSaved ? '보관함에서 제거' : '보관함에 키워드 저장'}">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="${isSaved ? '#F59E0B' : 'none'}" stroke="${isSaved ? '#F59E0B' : '#9CA3AF'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
             </button>
-            
+
             <div class="best-card-name"># ${item.name}</div>
             <div class="best-card-summary">${item.aiSummary}</div>
-            
+
             <div class="best-card-platforms">
               ${item.platforms.naver ? '<span class="mini-p-icon n" title="Naver">N</span>' : ''}
               ${item.platforms.youtube ? '<span class="mini-p-icon y" title="YouTube">Y</span>' : ''}
               ${item.platforms.threads ? '<span class="mini-p-icon t" title="Threads">T</span>' : ''}
             </div>
-            
-            <div class="best-card-rate-label">전주 대비</div>
-            <div class="best-card-rate-val">${item.weeklyRate}</div>
+
+            <div class="best-card-rate-label">${metric.label}</div>
+            <div class="best-card-rate-val">${metric.value(item)}</div>
           </div>
         `;
       }).join('');
@@ -8837,7 +8868,7 @@
                     ${platforms.threads ? '<span class="mini-p-icon t" title="Threads">T</span>' : ''}
                   </div>
                   
-                  <div class="best-card-rate-label">전주 대비</div>
+                  <div class="best-card-rate-label">전주 대비 변화율</div>
                   <div class="best-card-rate-val">${rate}</div>
                 </div>
               `;

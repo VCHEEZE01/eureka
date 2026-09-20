@@ -396,6 +396,19 @@
         var termsService = document.getElementById('terms-service');
         var email = emailEl ? emailEl.value.trim() : '';
         var password = pwEl ? pwEl.value : '';
+        // ★ 2026-09-20: `<input type="email">`의 브라우저 기본 검증은
+        // "user@nav"처럼 점(TLD) 없는 한 단어짜리 도메인도 통과시킨다
+        // (HTML 표준이 인트라넷 주소를 허용하려고 일부러 느슨하게 정의함).
+        // Supabase도 이 형식을 그대로 받아줘 실제로 가입까지 된 사고가
+        // 있었다. 점만 요구하면 "user@0.1"처럼 숫자 TLD도 통과해버려서
+        // (실존 도메인 끝은 항상 알파벳 2자 이상 — .com/.kr/.co.kr 등)
+        // 마지막 조각을 알파벳 2자 이상으로 못박는다.
+        // ※ 이건 형식만 걸러낼 뿐 "실제로 받는 메일함인지"는 증명하지
+        //   못한다 — 그건 확인 메일(현재 테스트 편의로 꺼둠)만 할 수 있다.
+        if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(email)) {
+          libToast('올바른 이메일 형식을 입력해주세요. (예: name@example.com)');
+          return;
+        }
         if (!termsAge || !termsAge.checked || !termsService || !termsService.checked) {
           libToast('필수 약관에 모두 동의해주세요.');
           return;
