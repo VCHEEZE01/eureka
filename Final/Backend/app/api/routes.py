@@ -29,6 +29,10 @@ _TREND_HTML_PATH = Path(__file__).resolve().parent.parent.parent.parent / "Front
 #   전부 공개돼 버린다. 파일 하나면 라우트 하나로 충분하다.
 _APP_JS_PATH = _TREND_HTML_PATH.parent / "eureka-app.js"
 
+# 카카오톡·슬랙 등 링크 공유 미리보기(Open Graph og:image)가 쓴다.
+# HTML <head>의 og:image가 절대주소로 이 경로를 가리킨다.
+_OG_IMAGE_PATH = _TREND_HTML_PATH.parent / "public" / "eureka.png"
+
 
 @router.get("/health")
 def health() -> dict:
@@ -52,6 +56,19 @@ def eureka_app_js():
         _APP_JS_PATH,
         media_type="application/javascript",
         headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/og-image.png", include_in_schema=False)
+def og_image():
+    # 로고 이미지라 HTML·JS와 달리 자주 안 바뀐다 — 공유 미리보기가
+    # 매번 새로 받아가지 않도록 짧게라도 캐싱을 허용한다.
+    if not _OG_IMAGE_PATH.is_file():
+        raise HTTPException(status_code=503, detail="og-image.png를 찾을 수 없습니다")
+    return FileResponse(
+        _OG_IMAGE_PATH,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=3600"},
     )
 
 
