@@ -1,18 +1,16 @@
-# 안쪽 eureka/ 는 별도 저장소라 여기서 추적하지 않는다
-eureka/
-
 # macOS·에디터 부산물
 .DS_Store
 .claude/
 .vscode/
 
-# 의존성·빌드 산출물
-node_modules/
-.next/
-*.tsbuildinfo
-
-# v0 프론트(frontend/)의 로컬 잔여물. 소스는 tag v0-pre-pivot에 보존돼 있다.
-/frontend/
-
 # Vercel CLI 로컬 링크 정보
 .vercel/
+
+# 최상위 .env — `vercel env pull` 등이 여기 만들 수 있다. 실제 키는
+# Final/Backend/.env 에 두고 커밋하지 않는다(그 폴더에 별도 .gitignore 있음).
+.env
+.env.local
+
+# 루트 index.py(Vercel 진입점) 실행 부산물
+__pycache__/
+*.pyc
