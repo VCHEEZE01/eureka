@@ -7,6 +7,10 @@ python-dotenv>=1.0
 # 외부 API 붙일 때
 httpx>=0.27
 
+# Supabase 액세스 토큰 검증(ES256/HS256). [crypto] 가 cryptography 를 끌고 온다.
+# ★ 팀 공유 파일 변경 — 받은 뒤 `pip install -r requirements.txt` 를 다시 돌릴 것.
+PyJWT[crypto]>=2.9
+
 # app/config/settings.py (.env 로드) — v0에서 복원, 아이디어 생성기가 씀
 pydantic-settings>=2.2
 

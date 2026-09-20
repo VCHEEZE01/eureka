@@ -11,7 +11,7 @@ LLM 없이 축 테이블만으로 아이디어를 만드는 결정적 폴백.
   일 때만 부른다.
 """
 
-from app.ideas.axes import ResolvedAxis, build_stack, pick_ai_tools
+from app.ideas.axes import ResolvedAxis, build_stack, tools_by_period, tools_for_period
 from app.schemas.idea_models import AiTool, Depth1Node, Depth2Node, IdeaSpec
 
 _APPROACHES = ["radar", "collector", "roulette"]
@@ -95,12 +95,34 @@ def _ia_for(axis: ResolvedAxis, approach: str, kw: str) -> list[Depth1Node]:
     return pool[:count]
 
 
-def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int) -> IdeaSpec:
+# 새로고침이 폴백으로 떨어졌을 때(LLM이 죽었거나 채움용으로 호출될 때)
+# 같은 접근이라도 문구가 조금은 달라 보이게 하는 변형 후보. 인덱스는
+# variation % len(options) — 결정적이라 시드 없는 random이 필요 없고,
+# variation=0은 위 _one()의 원래 문구와 완전히 같다(리스트 0번째로 둠).
+_SLOGAN_VARIANTS: dict[str, list[str]] = {
+    "radar": [
+        "내 주변 {kw} 관련 정보를 한눈에 실시간 확인",
+        "지금 이 순간의 {kw} 상황, 흩어진 곳 안 뒤지고 한 화면에서",
+    ],
+    "collector": [
+        "미션을 깨며 나만의 {kw} 스탬프 도감을 완성하는 재미",
+        "오늘 한 {kw} 경험, 스탬프로 모아 나만의 도감으로",
+    ],
+    "roulette": [
+        "선택 장애 끝! 지금 내 기분에 딱 맞는 {kw} 조합 추천",
+        "고민은 짧게, 만족은 길게 — {kw} 추천을 몇 초 만에",
+    ],
+}
+
+
+def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int, variation: int = 0) -> IdeaSpec:
     p, t = axis.platform_spec, axis.type_spec
+    slogan_variants = _SLOGAN_VARIANTS[approach]
+    slogan_pick = slogan_variants[variation % len(slogan_variants)].format(kw=kw)
 
     if approach == "radar":
         name = f"{kw} 파인더 (Finder & Radar)"
-        slogan = f"내 주변 {kw} 관련 정보를 한눈에 실시간 확인"
+        slogan = slogan_pick
         problem = f"{kw} 관련 정보가 여러 곳에 흩어져 있어 진짜 쓸만한 걸 찾기까지 서칭 피로가 발생합니다."
         solution = f"{kw} 관련 항목을 한 화면에서 실시간으로 큐레이션합니다."
         mvp = [
@@ -112,7 +134,7 @@ def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int) -> IdeaSpec:
         future = ["실시간 상태 업데이트", "알림 구독"]
     elif approach == "collector":
         name = f"{kw} 도감 챌린지 (Collector's Log)"
-        slogan = f"미션을 깨며 나만의 {kw} 스탬프 도감을 완성하는 재미"
+        slogan = slogan_pick
         problem = f"{kw} 경험이 일회성으로 끝나고, 무엇을 해봤는지 재미있게 기록할 공간이 없습니다."
         solution = f"{kw} 관련 수집 퀘스트를 제공해 나만의 디지털 스크랩북을 완성하게 합니다."
         mvp = [
@@ -124,7 +146,7 @@ def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int) -> IdeaSpec:
         future = ["친구와 진행률 비교", "한정판 디지털 배지"]
     else:
         name = f"오늘의 {kw} 룰렛 & 추천 봇"
-        slogan = f"선택 장애 끝! 지금 내 기분에 딱 맞는 {kw} 조합 추천"
+        slogan = slogan_pick
         problem = f"{kw}의 종류·조합이 너무 많아 무엇을 고를지 망설이다 시간을 씁니다."
         solution = f"짧은 질문에 답하면 {kw} 조합을 몇 초 만에 추천합니다."
         mvp = [
@@ -135,12 +157,15 @@ def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int) -> IdeaSpec:
         ]
         future = ["장바구니 딥링크", "유저 랭킹전"]
 
-    ai_tools = [AiTool(**tool) for tool in pick_ai_tools(axis)]
     flavor = _TYPE_FLAVOR[axis.type_key]
     mvp = mvp + [flavor["mvp_extra"]]
 
+    idea_id = f"{approach}-{axis.platform_key}-{axis.type_key}"
+    if variation:
+        idea_id = f"{idea_id}-v{variation}"
+
     return IdeaSpec(
-        id=f"{approach}-{axis.platform_key}-{axis.type_key}",
+        id=idea_id,
         name=name,
         short_name=name.split(" (")[0][:20],
         approach={"radar": "데이터 큐레이션 & 실시간 레이더",
@@ -155,18 +180,27 @@ def _one(axis: ResolvedAxis, approach: str, kw: str, idx: int) -> IdeaSpec:
         mvp_features=mvp,
         future_features=future,
         stack=build_stack(axis),
-        ai_tools=ai_tools,
+        ai_tools=[AiTool(**tool) for tool in tools_for_period("day")],
+        ai_tools_by_period={
+            p: [AiTool(**tool) for tool in tools]
+            for p, tools in tools_by_period().items()
+        },
         ia=_ia_for(axis, approach, kw),
     )
 
 
-def build(kw: str, axis: ResolvedAxis, count: int = 3) -> list[IdeaSpec]:
+def build(kw: str, axis: ResolvedAxis, count: int = 3, variation: int = 0) -> list[IdeaSpec]:
     """count개의 아이디어를 결정적으로 만든다. count > 3이면 접근을
-    반복하되 id를 구분한다(폴백은 3가지 원형만 가지고 있다)."""
+    반복하되 id를 구분한다(폴백은 3가지 원형만 가지고 있다).
+
+    variation: 새로고침에서 이 폴백이 다시 불릴 때(LLM 다운, 또는 LLM이
+    일부만 만들어 채움용으로 호출될 때) 접근 순서와 문구를 결정적으로
+    바꾼다. variation=0(기본값)은 이 함수를 처음 만들었을 때와 완전히
+    동일한 결과를 낸다 — 시드 없는 random을 안 쓰므로 재현 가능하다."""
     out: list[IdeaSpec] = []
     for i in range(count):
-        approach = _APPROACHES[i % len(_APPROACHES)]
-        idea = _one(axis, approach, kw, i)
+        approach = _APPROACHES[(i + variation) % len(_APPROACHES)]
+        idea = _one(axis, approach, kw, i, variation=variation)
         if i >= len(_APPROACHES):
             idea.id = f"{idea.id}-{i}"
         out.append(idea)

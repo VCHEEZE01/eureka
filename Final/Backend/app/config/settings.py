@@ -123,6 +123,35 @@ class Settings(BaseSettings):
     # app/trends/snapshot_store.py 참고.
     VERCEL: bool = False
 
+    # ── Supabase (인증 + 보관함 + 새로고침 쿼터) ──
+    # 설정 방법은 바탕화면의 "유레카_Supabase_설정.html" 또는 db/README.md 참고.
+    #
+    # ★ 공개 가능 / 서버 전용을 반드시 구분할 것.
+    #   URL·ANON_KEY 는 브라우저로 내려간다(그래야 로그인이 된다). 공개 전제다.
+    #   SERVICE_ROLE_KEY 는 RLS 를 통째로 우회하는 마스터 키다. 응답 본문·
+    #   로그·프론트 어디에도 절대 넣지 마라.
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+
+    # 토큰 검증. 새 프로젝트는 비대칭(ES256) + JWKS 가 기본이고,
+    # 레거시 프로젝트는 대칭(HS256) 공유 시크릿을 쓴다. 둘 다 지원하고
+    # 코드가 알아서 고른다 — JWKS 가 있으면 그쪽, 없으면 시크릿.
+    SUPABASE_JWT_SECRET: str = ""
+    SUPABASE_JWKS_URL: str = ""      # 비우면 {URL}/auth/v1/.well-known/jwks.json
+    SUPABASE_JWT_ISSUER: str = ""    # 비우면 {URL}/auth/v1
+    SUPABASE_JWT_AUDIENCE: str = "authenticated"
+    SUPABASE_JWKS_CACHE_SEC: int = 600
+    SUPABASE_TIMEOUT_SEC: int = 10
+
+    # 끄면 로그인 기능 전체가 사라지고 앱은 익명으로만 돈다.
+    # Supabase 가 멈췄거나(무료 티어는 미사용 시 일시정지) 오프라인일 때
+    # 데모를 계속할 수 있게 하는 탈출구다. 테스트의 기본값이기도 하다.
+    AUTH_ENABLED: bool = False
+
+    # 키워드 하나당 아이디어 새로고침 허용 횟수.
+    REFRESH_QUOTA_PER_KEYWORD: int = 1
+
     # ── 방어 ────────────────────────────────────
 
     @field_validator("*", mode="before")
@@ -175,6 +204,33 @@ class Settings(BaseSettings):
             else self.CLUSTER_THRESHOLD_TFIDF
         )
 
+    @property
+    def supabase_ready(self) -> bool:
+        """서버가 Supabase 에 쓰기까지 할 수 있는 상태인가.
+
+        AUTH_ENABLED 만 켜고 키를 안 넣은 상태를 '켜졌다'고 보면 런타임에
+        500 이 난다 — 여기서 한 번에 판정한다."""
+        return bool(
+            self.AUTH_ENABLED
+            and self.SUPABASE_URL
+            and self.SUPABASE_ANON_KEY
+            and self.SUPABASE_SERVICE_ROLE_KEY
+        )
+
+    @property
+    def supabase_jwks_url(self) -> str:
+        return self.SUPABASE_JWKS_URL or (
+            f"{self.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+            if self.SUPABASE_URL
+            else ""
+        )
+
+    @property
+    def supabase_jwt_issuer(self) -> str:
+        return self.SUPABASE_JWT_ISSUER or (
+            f"{self.SUPABASE_URL.rstrip('/')}/auth/v1" if self.SUPABASE_URL else ""
+        )
+
     def missing_keys(self) -> list[str]:
         """비어 있어서 실호출이 안 되는 항목. 실행 전 안내용."""
         need = {
@@ -189,6 +245,10 @@ class Settings(BaseSettings):
             need["LLM_BASE_URL"] = self.LLM_BASE_URL
             need["LLM_API_KEY"] = self.LLM_API_KEY
             need["LLM_MODEL"] = self.LLM_MODEL
+        if self.AUTH_ENABLED:
+            need["SUPABASE_URL"] = self.SUPABASE_URL
+            need["SUPABASE_ANON_KEY"] = self.SUPABASE_ANON_KEY
+            need["SUPABASE_SERVICE_ROLE_KEY"] = self.SUPABASE_SERVICE_ROLE_KEY
         return [k for k, v in need.items() if not v]
 
 
@@ -201,10 +261,20 @@ settings = get_settings()
 
 
 
+# 수집 worker 는 Supabase 를 쓰지 않는다. 마스터 키가 필요 없는 프로세스에
+# 굳이 실어 보내지 않는다 — 새어 나갈 표면을 줄이는 것 말고 이유는 없다.
+_CHILD_ENV_EXCLUDE = {"SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_JWT_SECRET"}
+
+
 def child_process_environment() -> dict[str, str]:
     """독립 수집 worker에 현재 설정을 전달한다. 비밀값은 로그·응답에 출력하지 않는다."""
     env = os.environ.copy()
+    for name in _CHILD_ENV_EXCLUDE:
+        env.pop(name, None)
     for name, value in settings.model_dump(mode="json").items():
+        if name in _CHILD_ENV_EXCLUDE:
+            env.pop(name, None)
+            continue
         if value is None:
             env.pop(name, None)
         elif isinstance(value, (list, dict, bool)):

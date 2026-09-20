@@ -18,10 +18,11 @@
 
 ★ 2026-09-17: V1.3 디자인에서 플랫폼이 웹/모바일앱 2개로 줄었다
   (데스크탑 웹 제거). 9조합 → 6조합.
+★ 2026-09-19: 추천 AI가 축(플랫폼×유형)이 아니라 **개발 기간**으로
+  결정된다. AI_TOOL_BY_PERIOD 참고.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 # ── 별칭 정규화 ──────────────────────────────────
 
@@ -69,7 +70,7 @@ PLATFORM_SPEC: dict[str, dict] = {
     "web": {
         "label": "웹(Web)",
         "form_directive": (
-            "브라우저 주소 하나로 바로 열리는 반응형 단일 웹앱을 전제하라. "
+            "브라우저 주소 하나로 바로 열리는 반응형 웹을 전제하라. "
             "설치·로그인 없이 첫 화면에서 핵심 가치를 바로 보여주고, 결과를 "
             "링크로 공유할 수 있어야 한다. 카메라 상시 접근·푸시 알림·백그라운드 "
             "위치처럼 네이티브 권한이 있어야만 성립하는 아이디어는 내지 마라."
@@ -81,7 +82,6 @@ PLATFORM_SPEC: dict[str, dict] = {
         ),
         "ia_shape": {"depth1_min": 3, "depth1_max": 4},
         "stack_default": "Next.js 14 (App Router), TypeScript, TailwindCSS, Vercel 배포",
-        "ai_tools": ["v0", "cursor", "claude_code"],
         "mvp_directive": (
             "새로고침·링크 재방문에도 상태가 유지되는 장치(URL 쿼리 또는 "
             "localStorage)를 기능 하나로 반드시 포함하라. 기능은 4개 이내로 하라."
@@ -107,7 +107,6 @@ PLATFORM_SPEC: dict[str, dict] = {
         ),
         "ia_shape": {"depth1_min": 3, "depth1_max": 4},
         "stack_default": "React Native (Expo), TypeScript, NativeWind, Supabase",
-        "ai_tools": ["cursor", "claude_code", "expo"],
         "mvp_directive": (
             "권한 요청은 1개 이내로 하라. 네트워크가 끊겨도 마지막 목록은 "
             "보이게 하라. 앱을 켜고 두 번의 탭 안에 핵심 동작에 도달해야 한다."
@@ -184,47 +183,33 @@ COMBO_NOTES: dict[tuple[str, str], str] = {
     ("mobile", "business"): "현장에서 바로 주문·예약·정산이 일어나는 접점. 알림이 매출로 직결된다.",
 }
 
-# ── 추천 AI 툴 카탈로그 (화이트리스트) ───────────
+# ── 추천 AI 카탈로그 (화이트리스트) ──────────────
 # ★ LLM이 자유 생성하지 않는다. 사용자가 이 pill을 보고 실제로 가입·
 #   결제하러 가므로 존재하지 않는 툴·낡은 모델명이 나오면 안 된다.
 #   버전·모델명("Claude 3.5 Sonnet" 같은)은 절대 넣지 않는다 — 이름과
 #   역할만 둔다.
+#
+# ★ 2026-09-19: 추천 기준이 "플랫폼 × 유형"에서 **개발 기간**으로 바뀌었다.
+#   기간이 길수록 손으로 치는 도구에서 대신 짜주는 에이전트로 넘어간다.
+#   기존의 AI_TOOL_COMBO(축 기반 표)와 pick_ai_tools()는 제거했다 —
+#   두 체계를 함께 두면 화면과 응답이 어긋난다.
 
 AI_TOOL_CATALOG: dict[str, dict] = {
-    "cursor": {"name": "Cursor", "role": "코드 편집·리팩터링 전반",
-               "platforms": ["web", "mobile"], "types": ["utility", "fun", "business"]},
-    "claude_code": {"name": "Claude Code", "role": "터미널에서 여러 파일 한번에",
-                     "platforms": ["web", "mobile"], "types": ["utility", "fun", "business"]},
-    "v0": {"name": "v0 by Vercel", "role": "화면 UI 초안 뽑기",
-           "platforms": ["web"], "types": ["utility", "fun", "business"]},
-    "lovable": {"name": "Lovable", "role": "웹앱 통째로 만들기",
-                "platforms": ["web"], "types": ["utility", "business"]},
-    "bolt": {"name": "Bolt.new", "role": "브라우저에서 바로 실행",
-             "platforms": ["web"], "types": ["fun"]},
-    "copilot": {"name": "GitHub Copilot", "role": "에디터 안 자동완성",
-                "platforms": ["web", "mobile"], "types": ["utility", "business"]},
-    "expo": {"name": "Expo", "role": "앱 빌드·실기기 미리보기",
-             "platforms": ["mobile"], "types": ["utility", "fun", "business"]},
-    "supabase": {"name": "Supabase", "role": "DB·인증 바로 붙이기",
-                 "platforms": ["web", "mobile"], "types": ["utility", "business"]},
-    "figma_make": {"name": "Figma Make", "role": "디자인 시안에서 코드로",
-                   "platforms": ["web", "mobile"], "types": ["fun", "business"]},
-    "midjourney": {"name": "Midjourney", "role": "카드·썸네일 이미지 생성",
-                   "platforms": ["web", "mobile"], "types": ["fun"]},
+    "chatgpt": {"name": "ChatGPT", "role": "대화로 기획·코드 초안 잡기"},
+    "gemini": {"name": "Gemini", "role": "긴 문서·이미지까지 함께 묻기"},
+    "claude": {"name": "Claude", "role": "긴 코드 읽고 고쳐 쓰기"},
+    "ai_studio": {"name": "Google AI Studio", "role": "모델을 무료로 실험해 보기"},
+    "antigravity": {"name": "Antigravity", "role": "에이전트가 대신 코드 작성"},
+    "cursor": {"name": "Cursor", "role": "코드 편집·리팩터링 전반"},
+    "claude_code": {"name": "Claude Code", "role": "터미널에서 여러 파일 한번에"},
+    "codex": {"name": "Codex", "role": "작업을 통째로 맡기는 에이전트"},
 }
 
-# 6조합 각각에 어떤 3개를 줄지 직접 고른 표다. pick_ai_tools()를 순수
-# 알고리즘(플랫폼 기본 세트 + 유형 보너스)으로 짜면 플랫폼별 앞 2개가
-# 겹쳐 조합 중 다수가 같은 결과를 내는 문제가 있었다(테스트로 발견).
-# 축이 2개뿐이라 억지로 알고리즘화하는 것보다 표로 못박는 쪽이 "조합이
-# 실제로 갈린다"를 코드로 보장하기 쉽다 — COMBO_NOTES와 같은 이유.
-AI_TOOL_COMBO: dict[tuple[str, str], list[str]] = {
-    ("web", "utility"): ["v0", "cursor", "copilot"],
-    ("web", "fun"): ["v0", "cursor", "midjourney"],
-    ("web", "business"): ["v0", "claude_code", "supabase"],
-    ("mobile", "utility"): ["cursor", "expo", "copilot"],
-    ("mobile", "fun"): ["cursor", "expo", "midjourney"],
-    ("mobile", "business"): ["cursor", "expo", "supabase"],
+# 기간 키(day/week/month) → 추천 AI id 목록. 축과 무관하게 고정이다.
+AI_TOOL_BY_PERIOD: dict[str, list[str]] = {
+    "day": ["chatgpt", "gemini", "claude", "ai_studio"],
+    "week": ["antigravity", "cursor"],
+    "month": ["claude_code", "codex"],
 }
 
 
@@ -258,40 +243,20 @@ def build_stack(axis: ResolvedAxis) -> str:
     return f"{base}, {extra}" if extra else base
 
 
-def pick_ai_tools(axis: ResolvedAxis, limit: int = 3) -> list[dict]:
-    """AI_TOOL_COMBO 표에서 이 조합의 툴 id 목록을 가져와 카탈로그로
-    펼친다. 표에 없는 조합(있을 수 없지만 방어적으로)은 플랫폼 기본
-    세트로 대체한다."""
-    ordered = AI_TOOL_COMBO.get(
-        (axis.platform_key, axis.type_key), axis.platform_spec["ai_tools"]
-    )
-    out: list[dict] = []
-    seen: set[str] = set()
-    for tid in ordered:
-        if tid in seen:
-            continue
-        spec = AI_TOOL_CATALOG.get(tid)
-        if spec is None:
-            continue
-        seen.add(tid)
-        out.append({"id": tid, "name": spec["name"], "role": spec["role"]})
-        if len(out) >= limit:
-            break
-    return out
+def tools_for_period(period_key: str) -> list[dict]:
+    """기간 키(day/week/month) → [{id, name, role}]. 축과 무관하게 고정이다.
+
+    모르는 기간이 들어오면 'day'로 떨어뜨린다 — 화면의 pill이 빈 채로
+    남는 것보다 낫다."""
+    ordered = AI_TOOL_BY_PERIOD.get(period_key) or AI_TOOL_BY_PERIOD["day"]
+    return [
+        {"id": tid, "name": AI_TOOL_CATALOG[tid]["name"], "role": AI_TOOL_CATALOG[tid]["role"]}
+        for tid in ordered
+        if tid in AI_TOOL_CATALOG
+    ]
 
 
-def filter_catalog_tools(raw_ids: list[str], axis: Optional["ResolvedAxis"] = None, limit: int = 3) -> list[dict]:
-    """LLM이 id를 골랐을 때 카탈로그 밖 값을 버리는 안전망.
-    현재 기본 경로는 pick_ai_tools()로 코드가 직접 고르므로 이 함수는
-    LLM 선택지를 실험적으로 켤 때만 쓴다."""
-    out: list[dict] = []
-    for tid in raw_ids:
-        spec = AI_TOOL_CATALOG.get(tid)
-        if spec is None:
-            continue
-        if axis is not None and (axis.platform_key not in spec["platforms"] or axis.type_key not in spec["types"]):
-            continue
-        out.append({"id": tid, "name": spec["name"], "role": spec["role"]})
-        if len(out) >= limit:
-            break
-    return out
+def tools_by_period() -> dict[str, list[dict]]:
+    """3개 기간 전부. 아이디어 캐시가 period를 키에 넣지 않고 기간별
+    프롬프트 3벌을 한꺼번에 싣는 것과 같은 이유로, AI 목록도 한꺼번에 담는다."""
+    return {p: tools_for_period(p) for p in ("day", "week", "month")}

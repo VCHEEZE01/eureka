@@ -17,7 +17,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-Platform = Literal["web", "mobile", "desktop"]
+Platform = Literal["web", "mobile"]
 IdeaType = Literal["utility", "fun", "business"]
 Period = Literal["day", "week", "month"]
 Source = Literal["llm", "cache", "fallback"]
@@ -55,7 +55,10 @@ class IdeaSpec(BaseModel):
     mvp_features: list[str] = Field(default_factory=list)
     future_features: list[str] = Field(default_factory=list)
     stack: str = ""
+    # ai_tools 는 기간별 목록 중 'day' 를 담는다(기존 소비자 호환용).
+    # 화면이 실제로 그리는 건 ai_tools_by_period 쪽이다.
     ai_tools: list[AiTool] = Field(default_factory=list)
+    ai_tools_by_period: dict[str, list[AiTool]] = Field(default_factory=dict)
     ia: list[Depth1Node] = Field(default_factory=list)
     prompts: dict[str, str] = Field(default_factory=dict)
     prompt: str = ""

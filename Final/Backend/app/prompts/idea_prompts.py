@@ -19,7 +19,11 @@ from app.ideas.axes import ResolvedAxis
 from app.prompts.common_prompts import with_rules
 from app.schemas.idea_models import IdeaSpec
 
-PROMPT_VERSION = 1
+# 이 값은 아이디어 캐시 키에 들어간다(app/ideas/cache.py) — 올리면
+# 디스크에 남은 캐시가 전부 무효가 된다. 프롬프트 문구나 아이디어의
+# 구조가 바뀌어 옛 캐시를 그대로 쓰면 안 될 때만 올린다.
+#   1 → 2 (2026-09-19): "웹앱" 문구 정정 + 추천 AI가 기간별 목록으로 바뀜.
+PROMPT_VERSION = 2
 
 # ── IA 작성 규칙 (docs/IDEA_GENERATION_HANDOFF.md 원문) ───────────
 
@@ -75,7 +79,7 @@ MVP 방향: __TYPE_MVP__
 디자인 톤: __TYPE_TONE__
 
 __IA_RULES__
-
+__EXCLUDE_BLOCK__
 [출력 형식]
 아래 JSON 배열 하나만 출력하라. 설명, 인사말, 코드블록 표시(```)를
 붙이지 마라. 서로 다른 __COUNT__개의 아이디어를, 접근 방식이 겹치지
@@ -102,7 +106,31 @@ __IA_RULES__
 ]"""
 
 
-def build_idea_prompt(kw: dict, axis: ResolvedAxis, count: int) -> str:
+# 새로고침이 "이미 봤던 것과 똑같은 3개"를 다시 뱉는 문제의 처방.
+# 온도(0.9)만으로는 부족하다 — 프롬프트가 같으면 모델의 최빈 답이
+# 재발한다(레이더/도감류가 반복 등장). 이미 보여준 아이디어를 제외
+# 목록으로 못박아 접근 각도 자체를 바꾸도록 강제한다.
+EXCLUDE_TEMPLATE = """
+[이미 보여준 아이디어 — 절대 반복 금지]
+아래는 같은 키워드·같은 조합으로 이미 사용자에게 보여준 아이디어다.
+이름·접근 방식·핵심 기능이 겹치면 안 된다. 같은 아이디어를 다르게
+표현한 것도 안 된다. 접근 각도 자체를 바꿔라.
+__EXCLUDE_LIST__"""
+
+
+def _format_exclude_block(exclude: list[dict] | None) -> str:
+    if not exclude:
+        return ""
+    lines = "\n".join(
+        f"- {item.get('name', '')} ({item.get('approach', '')}) — {item.get('slogan', '')}"
+        for item in exclude
+    )
+    return EXCLUDE_TEMPLATE.replace("__EXCLUDE_LIST__", lines)
+
+
+def build_idea_prompt(
+    kw: dict, axis: ResolvedAxis, count: int, exclude: list[dict] | None = None
+) -> str:
     p, t = axis.platform_spec, axis.type_spec
 
     ia_rules = (
@@ -133,6 +161,7 @@ def build_idea_prompt(kw: dict, axis: ResolvedAxis, count: int) -> str:
         .replace("__TYPE_NAMING__", t["naming_hint"])
         .replace("__TYPE_TONE__", t["tone"])
         .replace("__IA_RULES__", ia_rules)
+        .replace("__EXCLUDE_BLOCK__", _format_exclude_block(exclude))
         .replace("__COUNT__", str(count))
     )
     return with_rules(prompt)
