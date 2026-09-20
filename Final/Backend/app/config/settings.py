@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_MODEL: str = ""
     LLM_MODEL_JUDGE: str = ""  # 비우면 LLM_MODEL 을 쓴다
+
+    # LLM_PROVIDER=gemini 인데 POTENS_API_KEY 가 채워져 있으면, Gemini가
+    # 실패했을 때(무료 쿼터 소진 등) 자동으로 포텐스닷으로 한 번 더 시도한다.
+    # 비어 있으면 지금까지처럼 Gemini 실패 시 그대로 실패한다(폴백 없음).
+    POTENS_API_KEY: str = ""
+    POTENS_BASE_URL: str = "https://ai.potens.ai"
+    POTENS_MODEL: str = "claude-4-6-sonnet"
     LLM_AUTH_HEADER: str = "Authorization"
     LLM_AUTH_SCHEME: str = "Bearer"
     LLM_REQUEST_STYLE: Literal[

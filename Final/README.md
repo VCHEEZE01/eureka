@@ -27,7 +27,7 @@
 | :-- | :-- |
 | **Frontend** | 순수 HTML + 바닐라 JS 1개 파일 (Figma 익스포트 + 연동 레이어) |
 | **Backend** | Python 3.12(배포)/3.11(로컬 확인) · FastAPI · Pydantic 2 |
-| **LLM** | Google Gemini (`app/core/llm.py`) — 실제 호출, mock 아님 |
+| **LLM** | Google Gemini (`app/core/llm.py`) — 실제 호출, mock 아님. 무료 쿼터 소진 등으로 실패하면 포텐스닷(Claude)으로 자동 전환(④번 참고) |
 | **인증·DB** | Supabase (Auth + Postgres, PostgREST를 httpx로 직접 호출) |
 | **배포** | Vercel — `deploy` 브랜치를 Production으로 추적, push하면 자동 재배포 |
 
@@ -77,7 +77,7 @@ Final/
 
 ---
 
-## 3. 알아두면 사고를 막는 것 3가지
+## 3. 알아두면 사고를 막는 것 4가지
 
 ### ① 키워드 데이터가 두 군데 따로 있습니다
 
@@ -99,6 +99,15 @@ Final/
 
 `.env`의 `AUTH_ENABLED=false`(기본값)면 로그인·보관함·새로고침 제한 기능만 안 보이고,
 아이디어 생성 자체는 익명으로 정상 동작합니다. 로컬에서 빨리 확인하고 싶을 때 유용합니다.
+
+### ④ Gemini가 막히면 조용히 포텐스닷(Claude)으로 넘어갑니다
+
+무료 Gemini 키라 쿼터 소진 등으로 실패할 수 있습니다. `.env`에 `POTENS_API_KEY`가 채워져
+있으면(`POTENS_BASE_URL`·`POTENS_MODEL`과 함께), Gemini가 실패했을 때 `app/core/llm.py`의
+`FallbackLLMClient`가 자동으로 포텐스닷(`/api/chat`, Claude 모델)으로 한 번 더 시도합니다 —
+호출부는 이 전환을 모르고 그냥 결과를 받습니다. `POTENS_API_KEY`를 비워두면 폴백 없이
+Gemini 실패가 그대로 실패로 끝납니다. 요청/응답 계약은
+[`docs/POTENS_API_사용법.md`](../docs/POTENS_API_사용법.md) 참고.
 
 ---
 

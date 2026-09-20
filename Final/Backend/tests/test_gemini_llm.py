@@ -31,6 +31,7 @@ def gemini_settings(monkeypatch):
         "LLM_AUTH_SCHEME": "Potens",
         "LLM_REQUEST_STYLE": "raw_prompt",
         "LLM_RESPONSE_PATH": "data.result",
+        "POTENS_API_KEY": "",  # 비워서 폴백이 끼어들지 않게 한다 — 이 파일은 Gemini 단독 계약만 본다
     }.items():
         monkeypatch.setattr(settings, name, value)
     reset_llm()

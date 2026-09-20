@@ -18,6 +18,12 @@ Gemini는 Google 기본 generateContent API를 사용한다. 게이트웨이 설
 ★ LLM_BASE_URL 은 "요청을 POST 할 전체 엔드포인트 URL"이다.
   경로를 코드가 추측해서 붙이지 않는다 (게이트웨이 경로를 모르기 때문).
 
+★ Gemini 백업(폴백): LLM_PROVIDER=gemini 이고 POTENS_API_KEY 가 채워져
+  있으면, Gemini 무료 쿼터 소진 등으로 실패했을 때 자동으로 포텐스닷
+  (Claude 모델)으로 한 번 더 시도한다 — FallbackLLMClient/PotensLLMClient,
+  저장소 최상위 docs/POTENS_API_사용법.md 참고. POTENS_API_KEY 가 비어
+  있으면 지금까지처럼 폴백 없이 그대로 실패한다.
+
 사용:
     from app.core.llm import get_llm
     text = get_llm().complete("안녕").text
@@ -32,6 +38,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import time
 from typing import Any, Optional, Protocol, runtime_checkable
@@ -41,6 +48,8 @@ import httpx
 from pydantic import BaseModel
 
 from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 # ── 상수 ────────────────────────────────────────
 
@@ -504,6 +513,66 @@ class GeminiLLMClient(HTTPLLMClient):
             return client.post(url, json=payload, headers=self.headers())
 
 
+class PotensLLMClient(HTTPLLMClient):
+    """포텐스닷 게이트웨이(Claude 모델). Gemini 백업 전용으로만 쓴다.
+
+    저장소 최상위 docs/POTENS_API_사용법.md 의 /api/chat 계약(요청 {prompt, model} → 응답
+    {message, token_usage})을 그대로 따른다."""
+
+    def __init__(self) -> None:
+        key = _clean(settings.POTENS_API_KEY)
+        base = _clean(settings.POTENS_BASE_URL).rstrip("/")
+        model = _clean(settings.POTENS_MODEL)
+        if not key or not base or not model:
+            raise LLMError("POTENS_API_KEY / POTENS_BASE_URL / POTENS_MODEL 설정을 확인하라.")
+        super().__init__(
+            base_url=f"{base}/api/chat",
+            api_key=key,
+            model=model,
+            request_style="raw_prompt",
+            response_path="message",
+            auth_header="Authorization",
+            auth_scheme="Bearer",
+        )
+
+    def _send(self, body: dict) -> httpx.Response:
+        # raw_prompt 본문은 {"prompt": ...} 뿐이라, 포텐스닷이 모델을
+        # 고르는 데 쓰는 "model" 필드를 여기서 얹는다.
+        payload = {**body, "model": self.model}
+        if self._client is not None:
+            return self._client.post(self.base_url, json=payload, headers=self.headers(), timeout=self.timeout_sec)
+        with httpx.Client(timeout=self.timeout_sec) as client:
+            return client.post(self.base_url, json=payload, headers=self.headers())
+
+
+class FallbackLLMClient(_BaseLLM):
+    """1차(Gemini)가 실패하면 2차(Potens)로 자동 전환한다.
+
+    무료 티어라 쿼터 소진(429)·일시 장애로 Gemini가 자주 막히는 걸
+    감안한 것. 1차가 이미 자체적으로 재시도(HTTPLLMClient._post_with_retry)
+    까지 다 해본 뒤에만 넘어온다."""
+
+    def __init__(self, primary: LLMClient, secondary: LLMClient) -> None:
+        self.primary = primary
+        self.secondary = secondary
+
+    def complete(self, prompt: str, **kw: Any) -> LLMResponse:
+        try:
+            return self.primary.complete(prompt, **kw)
+        except LLMError as e:
+            logger.warning("1차 LLM 실패 — 백업(Potens)으로 전환: %s", e)
+            kw.pop("json_mode", None)  # Gemini 전용 인자 — 백업엔 없다
+            return self.secondary.complete(prompt, **kw)
+
+    def complete_json(self, prompt: str, **kw: Any) -> Any:
+        try:
+            return self.primary.complete_json(prompt, **kw)
+        except LLMError as e:
+            logger.warning("1차 LLM 실패 — 백업(Potens)으로 전환: %s", e)
+            kw.pop("json_mode", None)
+            return self.secondary.complete_json(prompt, **kw)
+
+
 # ── 오프라인용 ──────────────────────────────────
 
 
@@ -587,7 +656,11 @@ def get_llm() -> LLMClient:
         if settings.LLM_DRY_RUN or settings.LLM_PROVIDER == "echo":
             _client = EchoLLM()
         elif settings.LLM_PROVIDER == "gemini":
-            _client = GeminiLLMClient()
+            primary = GeminiLLMClient()
+            if _clean(settings.POTENS_API_KEY):
+                _client = FallbackLLMClient(primary, PotensLLMClient())
+            else:
+                _client = primary
         else:
             _client = HTTPLLMClient()
     return _client
