@@ -21,7 +21,6 @@ v0 코드 전체는 `v0-pre-pivot` 태그로 보존돼 있습니다 (`git checko
 
 | | |
 | :-- | :-- |
-| 기획 (PRD · 플로우 · 디자인) | ✅ 완료 — [`TAEYUN/`](TAEYUN/) |
 | 백엔드 (FastAPI + Gemini) | ✅ 실제 배포, 테스트 114개 통과 |
 | 로그인·보관함·새로고침 제한 (Supabase) | ✅ 실사용 검증 완료 |
 | 실제 배포 (Vercel) | ✅ `deploy` 브랜치 push → 자동 재배포 |
@@ -29,26 +28,6 @@ v0 코드 전체는 `v0-pre-pivot` 태그로 보존돼 있습니다 (`git checko
 
 실제로 동작하는 코드는 [`Final/`](Final/) 폴더에 있습니다. 구조·주의사항은
 [`Final/README.md`](Final/README.md)를 먼저 읽어주세요.
-
----
-
-## 📂 기획 자료 — 태윤이 정리한 것
-
-| | 파일 | 내용 |
-| :-- | :-- | :-- |
-| **①** | [`Eureka_PRD_v2.md`](TAEYUN/Eureka_PRD_v2.md) | 기능 정의서 — F00~F10, IA, KPI |
-| **②** | [`flow_diagram_abstract.png`](TAEYUN/flow_diagram_abstract.png) | 화면 흐름 한 장 |
-| **③** | [`유레카_임시_DESIGN.md`](TAEYUN/유레카_임시_DESIGN.md) | 디자인 가이드 — 색·폰트·여백 |
-| **④** | [`에이전트_흐름도.html`](TAEYUN/에이전트_흐름도.html) | 에이전트 설계 그림 |
-| **⑤** | [`아키텍처_설계.md`](TAEYUN/아키텍처_설계.md) | 시스템 설계 초안 (당시 기준, 실제 구조는 [`Final/README.md`](Final/README.md) 참고) |
-| **⑥** | [`팀원과공유.md`](TAEYUN/팀원과공유.md) | 초기 논의 기록 |
-
-**보조 문서** — [`공유가이드.md`](TAEYUN/공유가이드.md) · [`논의_01_에이전트와_스택.md`](TAEYUN/논의_01_에이전트와_스택.md) ·
-[`프롬프트_유레카.md`](TAEYUN/프롬프트_유레카.md)
-
-> ⚠️ 예전엔 여기에 `TAEYUN/prototype/`(Next.js 프로토타입)과 `TAEYUN/eureka-공유용.html`(그 결과물)이
-> 있었습니다. 실제 서비스(`Final/`)가 이를 완전히 대체해서 **2026-09-20에 정리하며 삭제했습니다.**
-> 지금 눌러볼 수 있는 실물은 맨 위 배포 링크입니다. 경위는 [`docs/저장소_정리_2026-09-20.md`](docs/저장소_정리_2026-09-20.md) 참고.
 
 ---
 
