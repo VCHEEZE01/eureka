@@ -31,7 +31,12 @@ _APP_JS_PATH = _TREND_HTML_PATH.parent / "eureka-app.js"
 
 # 카카오톡·슬랙 등 링크 공유 미리보기(Open Graph og:image)가 쓴다.
 # HTML <head>의 og:image가 절대주소로 이 경로를 가리킨다.
-_OG_IMAGE_PATH = _TREND_HTML_PATH.parent / "public" / "eureka.png"
+# ★ 2026-09-20: 원래 Frontend/public/eureka.png였는데 Vercel 배포에서만
+#   503(파일 없음)이 났다 — 목욕중/ 폴더 이미지는 똑같은 방식으로
+#   정상 서빙되는데 이것만 안 됐다. "public"이라는 폴더명을 Vercel이
+#   Next.js 등의 관례로 인식해 서버리스 함수 번들에서 빼버리는 것으로
+#   보여 목욕중/과 같은 급의 이름(assets/)으로 옮겼다.
+_OG_IMAGE_PATH = _TREND_HTML_PATH.parent / "assets" / "eureka.png"
 
 
 @router.get("/health")
