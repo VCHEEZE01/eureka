@@ -49,36 +49,61 @@
     // 맨이름으로 읽고 쓰는 전역 (디자인 script 의 최상위 let/const)
     globals: [
       'savedKeywords', 'savedIdeas', 'configSettings',
-      'selectedKeyword', 'generatedIdeas', 'isGenerating', 'PERIOD_KEY'
+      'selectedKeyword', 'generatedIdeas'
     ],
     // 나중 단계에서 window.<이름> 으로 덮어쓸 함수
     overrides: [
       'toggleSaveKeyword', 'toggleSaveIdea', 'removeSavedKeyword',
-      'removeSavedIdea', 'syncSavedIdea', 'updateSavedCounts',
-      'executeIdeaGeneration'
+      'removeSavedIdea', 'updateSavedCounts', 'executeIdeaGeneration',
+      'handleFigmaLogin', 'handleFigmaSignup'
     ],
     // 감싸거나 그대로 호출할 함수 (대체하지 않는다 — 디자인 소유)
     uses: [
-      'renderIdeasTabs', 'renderSavedScreen', 'showIdeaDetail',
-      'showToast', 'navigateTo', 'esc', 'aiToolsFor',
-      'findKeywordById', 'renderBestKeywordsGrid', 'renderWeeklySlider',
-      'renderDetailScreen', 'toggleSavedIdeaDetails',
-      'startLoadingMessages', 'buildFallbackIdeaDrafts', 'buildPromptForPeriod',
-      'toIdeaView', 'renderIdeaResults'
-    ]
+      'renderIdeasTabs', 'renderSavedScreen', 'showToast', 'navigateTo',
+      'findKeywordById', 'renderBestKeywordsGrid', 'renderWeeklySlider'
+    ],
+    // 서버 생성 실패 시 오프라인 폴백으로만 쓴다 — 없으면 폴백 없이
+    // 로딩 화면만 사라지고 오류 토스트를 띄운다(치명적이지 않음).
+    optionalUses: ['finishIdeaGeneration']
   };
 
   var SELECTORS = {
     ideaTabsBox: 'ideas-tabs-container',
     resultScreen: 'result-main-screen',
     ideaDetailBox: 'active-idea-card-container',
-    toast: 'toast-popup'
+    toast: 'toast-popup',
+    resultLoadingScreen: 'result-loading-screen',
+    loadingStepText: 'loading-step-text',
+    resultKeywordName: 'result-keyword-name'
   };
 
-  // 헤더 로그인 칩을 꽂을 자리 후보. 위에서부터 시도하고, 전부 없으면
-  // 화면 우측 상단에 고정 위치로 띄운다 — 새 디자인이 header 구조를
-  // 바꿔도 아예 안 뜨는 최악은 피한다.
-  var HEADER_CHIP_TARGETS = ['.fixed-gnb-inner', 'header > div', 'header'];
+  // 백엔드 IdeaSpec(스네이크케이스) → 이 디자인의 아이디어 카드가 기대하는
+  // 모양. 이 디자인은 toIdeaView() 같은 매핑 함수를 자체적으로 갖고
+  // 있지 않으므로 여기서 직접 변환한다(Final/Backend/app/schemas/idea_models.py 참고).
+  function mapBackendIdea(x) {
+    return {
+      id: x.id || '',
+      name: x.name || x.short_name || '아이디어',
+      shortName: x.short_name || x.name || '',
+      approach: x.approach || '',
+      slogan: x.slogan || '',
+      target: x.target || '',
+      problem: x.problem || '',
+      solution: x.solution || '',
+      concept: x.architecture || '',
+      diff: x.diff || '',
+      mvpFeatures: x.mvp_features || [],
+      futureFeatures: x.future_features || [],
+      stack: x.stack || '',
+      prompt: x.prompt || ''
+    };
+  }
+
+  // 이 디자인의 script 최상위에는 period 라벨→키 매핑이 없다(예전
+  // 디자인의 PERIOD_KEY 가 사라짐). configSettings.period 라벨은
+  // '하루'/'일주일'/'한 달 이상' 그대로이므로 여기서 자체 관리한다.
+  // toggleSaveIdea 오버라이드(보관함 저장 시 기간 태깅)가 이걸 쓴다.
+  var EUREKA_PERIOD_KEY = { '하루': 'day', '일주일': 'week', '한 달 이상': 'month' };
 
   /* ── 환경 판정 ─────────────────────────────────────────────────────
    * file:// 로 더블클릭해 열면 서버 API 도 Supabase 도 못 쓴다.
@@ -288,13 +313,11 @@
   function bootSession() {
     window.sb.auth.getSession().then(function (r) {
       currentSession = (r && r.data && r.data.session) || null;
-      renderHeaderChip();
       if (currentSession) fireHandlers(signedInHandlers);
     });
     window.sb.auth.onAuthStateChange(function (event, session) {
       var wasLoggedIn = isLoggedIn();
       currentSession = session || null;
-      renderHeaderChip();
       if (event === 'SIGNED_IN' || (isLoggedIn() && !wasLoggedIn)) {
         fireHandlers(signedInHandlers);
       } else if (event === 'SIGNED_OUT' || (!isLoggedIn() && wasLoggedIn)) {
@@ -303,155 +326,20 @@
     });
   }
 
-  /* ── 인증 UI — 어떤 디자인에도 없으므로 JS가 직접 주입한다 ────────── */
-
-  var AUTH_STYLE = '' +
-    '#eureka-auth-root{all:initial;}' +
-    '#eureka-auth-root *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;}' +
-    '#eureka-auth-root .eureka-overlay{position:fixed;inset:0;background:rgba(15,15,20,.5);' +
-      'display:flex;align-items:center;justify-content:center;z-index:100000;}' +
-    '#eureka-auth-root .eureka-overlay[hidden]{display:none;}' +
-    '#eureka-auth-root .eureka-modal{background:#fff;border-radius:20px;padding:32px;width:340px;' +
-      'max-width:calc(100vw - 32px);box-shadow:0 20px 60px rgba(0,0,0,.25);position:relative;}' +
-    '#eureka-auth-root .eureka-modal-close{position:absolute;top:14px;right:16px;border:none;' +
-      'background:none;font-size:20px;line-height:1;cursor:pointer;color:#94A3B8;padding:4px;}' +
-    '#eureka-auth-root .eureka-modal-close:hover{color:#334155;}' +
-    '#eureka-auth-root .eureka-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#F4F4F6;' +
-      'border-radius:10px;padding:4px;}' +
-    '#eureka-auth-root .eureka-tab{flex:1;border:none;background:none;padding:9px 0;border-radius:8px;' +
-      'font-size:14px;font-weight:700;color:#71717A;cursor:pointer;}' +
-    '#eureka-auth-root .eureka-tab.active{background:#fff;color:#6B42FF;box-shadow:0 1px 3px rgba(0,0,0,.08);}' +
-    '#eureka-auth-root .eureka-auth-form{display:flex;flex-direction:column;gap:12px;}' +
-    '#eureka-auth-root .eureka-field-label{font-size:13px;font-weight:600;color:#3F3F46;display:block;margin-bottom:6px;}' +
-    '#eureka-auth-root .eureka-auth-form input{width:100%;padding:11px 13px;border:1.5px solid #E4E4E7;' +
-      'border-radius:10px;font-size:14px;outline:none;}' +
-    '#eureka-auth-root .eureka-auth-form input:focus{border-color:#6B42FF;}' +
-    '#eureka-auth-root .eureka-auth-error{color:#DC2626;font-size:13px;margin:0;min-height:0;}' +
-    '#eureka-auth-root .eureka-auth-error:empty{display:none;}' +
-    '#eureka-auth-root .eureka-auth-hint{color:#16A34A;font-size:13px;margin:0;}' +
-    '#eureka-auth-root .eureka-auth-hint:empty{display:none;}' +
-    '#eureka-auth-root .eureka-auth-submit{margin-top:4px;background:#6B42FF;color:#fff;border:none;' +
-      'border-radius:10px;padding:12px 0;font-size:15px;font-weight:700;cursor:pointer;}' +
-    '#eureka-auth-root .eureka-auth-submit:disabled{opacity:.6;cursor:default;}' +
-    '#eureka-auth-root .eureka-auth-submit:not(:disabled):hover{background:#5B34E0;}' +
-    '.eureka-header-chip{display:flex;align-items:center;gap:10px;margin-left:auto;}' +
-    '.eureka-login-btn{background:#6B42FF;color:#fff;border:none;border-radius:999px;padding:8px 18px;' +
-      'font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}' +
-    '.eureka-login-btn:hover{background:#5B34E0;}' +
-    '.eureka-user-chip{display:flex;align-items:center;gap:8px;}' +
-    '.eureka-user-email{font-size:13px;color:#52525B;max-width:150px;overflow:hidden;' +
-      'text-overflow:ellipsis;white-space:nowrap;}' +
-    '.eureka-logout-btn{background:none;border:1.5px solid #E4E4E7;color:#52525B;border-radius:999px;' +
-      'padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;}' +
-    '.eureka-logout-btn:hover{border-color:#CBD5E1;color:#27272A;}' +
-    '.eureka-header-chip-fallback{position:fixed;top:16px;right:16px;z-index:9999;}';
-
-  function injectStyleOnce() {
-    if (document.getElementById('eureka-auth-style')) return;
-    var style = document.createElement('style');
-    style.id = 'eureka-auth-style';
-    style.textContent = AUTH_STYLE;
-    document.head.appendChild(style);
-  }
-
-  function buildAuthRoot() {
-    if (document.getElementById('eureka-auth-root')) return;
-    var root = document.createElement('div');
-    root.id = 'eureka-auth-root';
-    root.innerHTML =
-      '<div class="eureka-overlay" id="eureka-auth-overlay" hidden>' +
-        '<div class="eureka-modal" role="dialog" aria-modal="true" aria-label="로그인">' +
-          '<button type="button" class="eureka-modal-close" id="eureka-auth-close" aria-label="닫기">&times;</button>' +
-          '<div class="eureka-modal-tabs">' +
-            '<button type="button" class="eureka-tab active" data-mode="signin">로그인</button>' +
-            '<button type="button" class="eureka-tab" data-mode="signup">회원가입</button>' +
-          '</div>' +
-          '<form class="eureka-auth-form" id="eureka-auth-form">' +
-            '<div>' +
-              '<span class="eureka-field-label">이메일</span>' +
-              '<input type="email" id="eureka-auth-email" autocomplete="email" required />' +
-            '</div>' +
-            '<div>' +
-              '<span class="eureka-field-label">비밀번호</span>' +
-              '<input type="password" id="eureka-auth-password" autocomplete="current-password" minlength="6" required />' +
-            '</div>' +
-            '<p class="eureka-auth-error" id="eureka-auth-error"></p>' +
-            '<p class="eureka-auth-hint" id="eureka-auth-hint"></p>' +
-            '<button type="submit" class="eureka-auth-submit" id="eureka-auth-submit">로그인</button>' +
-          '</form>' +
-        '</div>' +
-      '</div>';
-    document.body.appendChild(root);
-
-    var overlay = document.getElementById('eureka-auth-overlay');
-    var form = document.getElementById('eureka-auth-form');
-    var tabs = root.querySelectorAll('.eureka-tab');
-
-    document.getElementById('eureka-auth-close').addEventListener('click', closeAuthModal);
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closeAuthModal();
-    });
-    tabs.forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        tabs.forEach(function (t) { t.classList.remove('active'); });
-        tab.classList.add('active');
-        setAuthMode(tab.getAttribute('data-mode'));
-      });
-    });
-    form.addEventListener('submit', handleAuthSubmit);
-  }
-
-  var authMode = 'signin';
-
-  function setAuthMode(mode) {
-    authMode = mode;
-    restoreSubmitLabel(mode);
-    var pwInput = document.getElementById('eureka-auth-password');
-    if (pwInput) pwInput.setAttribute('autocomplete', mode === 'signup' ? 'new-password' : 'current-password');
-    setAuthError('');
-    setAuthHint('');
-  }
-
-  /** 제출 버튼의 라벨/활성화 상태만 되돌린다. setAuthMode()와 갈라둔 이유:
-   * 로그인 실패 뒤 "처리 중..." 라벨을 되돌릴 때 setAuthMode()를 쓰면
-   * 그 함수가 끝에서 setAuthError('')/setAuthHint('')를 호출해 방금
-   * 띄운 에러 메시지가 뜨자마자 지워지는 버그가 있었다(테스트로 발견). */
-  function restoreSubmitLabel(mode) {
-    var submit = document.getElementById('eureka-auth-submit');
-    if (submit) submit.textContent = mode === 'signup' ? '회원가입' : '로그인';
-  }
-
-  function setAuthError(msg) {
-    var el = document.getElementById('eureka-auth-error');
-    if (el) el.textContent = msg || '';
-  }
-
-  function setAuthHint(msg) {
-    var el = document.getElementById('eureka-auth-hint');
-    if (el) el.textContent = msg || '';
-  }
-
-  function openAuthModal(mode) {
-    if (!authEnabled) return;
-    buildAuthRoot();
-    var overlay = document.getElementById('eureka-auth-overlay');
-    if (!overlay) return;
-    var tabs = document.querySelectorAll('#eureka-auth-root .eureka-tab');
-    tabs.forEach(function (t) {
-      t.classList.toggle('active', t.getAttribute('data-mode') === (mode || 'signin'));
-    });
-    setAuthMode(mode || 'signin');
-    overlay.hidden = false;
-    var emailInput = document.getElementById('eureka-auth-email');
-    if (emailInput) setTimeout(function () { emailInput.focus(); }, 0);
-  }
-
-  function closeAuthModal() {
-    var overlay = document.getElementById('eureka-auth-overlay');
-    if (overlay) overlay.hidden = true;
-    setAuthError('');
-    setAuthHint('');
-  }
+  /* ── 인증 UI ────────────────────────────────────────────────────────
+   * ★ 예전엔 여기서 로그인/회원가입 모달을 직접 그렸다(어떤 디자인에도
+   *   자체 인증 화면이 없을 거라 가정했었다). 그런데 2026-09-20
+   *   new1.3.html은 자체 로그인/회원가입 화면(view-login/view-signup,
+   *   handleFigmaLogin/handleFigmaSignup)을 갖고 있었고, 우리 모달을
+   *   얹었더니 "팀원이 만든 화면이 아니다"라는 피드백을 받았다 —
+   *   당연하다, 진짜 다른 화면이었으니까. 그래서 자체 모달은 걷어내고
+   *   대신 디자인의 handleFigmaLogin/handleFigmaSignup을 실제 Supabase
+   *   호출로 덮어쓴다(아래 installLoginOverrides). 헤더 로그인 버튼도
+   *   디자인 자신의 것(마이페이지 버튼과 같은 자리)을 그대로 쓴다 —
+   *   더 이상 우리가 헤더에 칩을 따로 얹지 않는다.
+   *   (다음에 자체 인증 화면이 아예 없는 디자인이 오면, 그때 다시
+   *   최소한의 모달을 만든다 — 지금 없는 디자인을 미리 대비해 두지
+   *   않는다.) */
 
   function friendlyAuthError(message) {
     var m = String(message || '');
@@ -462,46 +350,6 @@
     return m || '알 수 없는 오류가 발생했습니다.';
   }
 
-  function handleAuthSubmit(e) {
-    e.preventDefault();
-    if (!window.sb) return;
-    var email = (document.getElementById('eureka-auth-email') || {}).value || '';
-    var password = (document.getElementById('eureka-auth-password') || {}).value || '';
-    var submit = document.getElementById('eureka-auth-submit');
-    setAuthError('');
-    setAuthHint('');
-    if (submit) { submit.disabled = true; submit.textContent = '처리 중...'; }
-
-    var action = authMode === 'signup'
-      ? window.sb.auth.signUp({ email: email, password: password })
-      : window.sb.auth.signInWithPassword({ email: email, password: password });
-
-    action.then(function (result) {
-      var error = result && result.error;
-      if (error) {
-        setAuthError(friendlyAuthError(error.message));
-        return;
-      }
-      var session = result && result.data && result.data.session;
-      if (authMode === 'signup' && !session) {
-        // 이메일 확인이 켜져 있는 프로젝트라면 세션이 바로 안 온다.
-        // (가이드대로 껐다면 여기 안 걸리고 바로 로그인된다.)
-        setAuthHint('가입 확인 메일을 보냈습니다. 메일함을 확인해주세요.');
-        return;
-      }
-      if (typeof window.showToast === 'function') {
-        window.showToast(authMode === 'signup' ? '가입되었습니다!' : '로그인되었습니다.');
-      }
-      closeAuthModal();
-      var form = document.getElementById('eureka-auth-form');
-      if (form) form.reset();
-    }).catch(function (err) {
-      setAuthError(friendlyAuthError(err && err.message));
-    }).then(function () {
-      if (submit) { submit.disabled = false; restoreSubmitLabel(authMode); }
-    });
-  }
-
   function handleSignOut() {
     if (!window.sb) return;
     window.sb.auth.signOut().then(function () {
@@ -509,56 +357,103 @@
     });
   }
 
-  /* ── 헤더 로그인 칩 ─────────────────────────────────────────────── */
-
-  function findHeaderMount() {
-    for (var i = 0; i < HEADER_CHIP_TARGETS.length; i++) {
-      var el = document.querySelector(HEADER_CHIP_TARGETS[i]);
-      if (el) return el;
+  /* ── 로그인/회원가입 — 디자인 자체 화면을 실제 Supabase로 연결 ───────
+   * ★ 이 디자인은 자체 로그인/회원가입 화면(view-login/view-signup)과
+   *   그걸 처리하는 handleFigmaLogin()/handleFigmaSignup()을 갖고
+   *   있다 — 원본은 Supabase와 무관한 순수 로컬 목업이라(isLoggedIn
+   *   플래그만 localStorage에 씀) 그대로 두면 "로그인"해도 진짜 세션이
+   *   안 생겨 보관함 서버 저장·새로고침이 조용히 계속 깨진다.
+   *   (예전엔 여기서 별도 모달로 이 화면 자체를 가로챘는데, 그러면
+   *   사용자가 보는 화면이 팀원 디자인과 달라져 버렸다 — 그래서 화면은
+   *   디자인 것 그대로 두고, 제출 핸들러만 실제 Supabase 호출로
+   *   덮어쓴다. toggleSaveIdea 등과 같은 "원본 함수를 window.X = 로
+   *   갈아끼우기" 패턴이다.) */
+  function installLoginOverrides() {
+    if (typeof window.handleFigmaLogin === 'function') {
+      window.handleFigmaLogin = function (e) {
+        if (e) e.preventDefault();
+        if (!window.sb) return;
+        var emailEl = document.getElementById('figma-login-email');
+        var pwEl = document.getElementById('figma-login-pw');
+        var email = emailEl ? emailEl.value.trim() : '';
+        var password = pwEl ? pwEl.value : '';
+        window.sb.auth.signInWithPassword({ email: email, password: password }).then(function (result) {
+          var error = result && result.error;
+          if (error) { libToast(friendlyAuthError(error.message)); return; }
+          libToast('로그인되었습니다.');
+          navigateTo('home');
+        }).catch(function (err) { libToast(friendlyAuthError(err && err.message)); });
+      };
     }
-    return null;
+
+    if (typeof window.handleFigmaSignup === 'function') {
+      window.handleFigmaSignup = function (e) {
+        if (e) e.preventDefault();
+        if (!window.sb) return;
+        var emailEl = document.getElementById('figma-signup-email');
+        var pwEl = document.getElementById('figma-signup-pw');
+        var termsAge = document.getElementById('terms-age');
+        var termsService = document.getElementById('terms-service');
+        var email = emailEl ? emailEl.value.trim() : '';
+        var password = pwEl ? pwEl.value : '';
+        if (!termsAge || !termsAge.checked || !termsService || !termsService.checked) {
+          libToast('필수 약관에 모두 동의해주세요.');
+          return;
+        }
+        window.sb.auth.signUp({ email: email, password: password }).then(function (result) {
+          var error = result && result.error;
+          if (error) { libToast(friendlyAuthError(error.message)); return; }
+          var session = result && result.data && result.data.session;
+          if (!session) {
+            // 이메일 확인이 켜진 프로젝트라면 세션이 바로 안 온다
+            // (가이드대로 껐다면 여기 안 걸리고 바로 로그인된다).
+            libToast('가입 확인 메일을 보냈습니다. 메일함을 확인해주세요.');
+            navigateTo('login');
+            return;
+          }
+          libToast('가입되었습니다!');
+          navigateTo('home');
+        }).catch(function (err) { libToast(friendlyAuthError(err && err.message)); });
+      };
+    }
+
+    // ★ 2026-09-20: "중복확인" 버튼은 이 브라우저의 로컬 registeredEmails
+    // 배열(가짜 시드값 + 예전 로컬 목업 가입 때만 쌓임)을 보고 "사용
+    // 가능"을 단언했는데, handleFigmaSignup을 실제 Supabase로 바꾼
+    // 뒤로는 그 배열이 실제 가입 여부와 완전히 무관해져서 이미 가입된
+    // 이메일에 "사용 가능"이라고 잘못 알려주는 사고가 났다(실제 있었던
+    // 버그). 게다가 Supabase는 이메일 열거(enumeration) 공격을 막으려고
+    // "이 이메일 가입됐는지" 미리 물어볼 공개 API를 일부러 안 줘서,
+    // 이 버튼은 애초에 정확한 답을 줄 수 없었다(형식 확인은 이미
+    // `<input type="email" required>`가 한다) — 그래서 버튼 자체를
+    // 디자인 마크업에서 지웠다. 여기서 더 손댈 것 없음.
   }
 
-  function mountHeaderChip() {
-    if (document.getElementById('eureka-header-chip')) return renderHeaderChip();
-    var chip = document.createElement('div');
-    chip.className = 'eureka-header-chip';
-    chip.id = 'eureka-header-chip';
-
-    var mount = findHeaderMount();
-    if (mount) {
-      mount.appendChild(chip);
-    } else {
-      chip.classList.add('eureka-header-chip-fallback');
-      document.body.appendChild(chip);
-      console.warn(LOG, '헤더 마운트 지점을 못 찾아 고정 위치로 띄웠습니다 — SELECTORS/HEADER_CHIP_TARGETS 확인 필요.');
-    }
-    renderHeaderChip();
-  }
-
-  function renderHeaderChip() {
-    var chip = document.getElementById('eureka-header-chip');
-    if (!chip) return;
-    var user = currentUser();
-    if (user) {
-      chip.innerHTML =
-        '<div class="eureka-user-chip">' +
-          '<span class="eureka-user-email" title="' + escapeHtml(user.email) + '">' + escapeHtml(user.email) + '</span>' +
-          '<button type="button" class="eureka-logout-btn" id="eureka-logout-btn">로그아웃</button>' +
-        '</div>';
-      var btn = document.getElementById('eureka-logout-btn');
-      if (btn) btn.addEventListener('click', handleSignOut);
-    } else {
-      chip.innerHTML = '<button type="button" class="eureka-login-btn" id="eureka-login-btn">로그인</button>';
-      var loginBtn = document.getElementById('eureka-login-btn');
-      if (loginBtn) loginBtn.addEventListener('click', function () { openAuthModal('signin'); });
+  /** 이 디자인의 마이페이지엔 "로그아웃하기" 링크가 handleLogout()을
+   * 직접 부른다. 원본은 로컬 목업 isLoggedIn 플래그만 끄고 실제
+   * Supabase 세션은 그대로 둔다 — 그러면 새로고침 시 세션이 남아 있어
+   * 다시 로그인 상태로 돌아오는 버그가 난다. 있으면 실제 signOut으로
+   * 갈아끼운다(없으면 이 디자인엔 로그아웃 진입점이 아예 없다는 뜻). */
+  function installLogoutOverride() {
+    if (typeof window.handleLogout === 'function') {
+      window.handleLogout = handleSignOut;
     }
   }
 
-  function escapeHtml(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  /** 우리가 진짜로 로그인/로그아웃시켰다는 걸 디자인 자신의 GNB 버튼에도
+   * 반영한다 — 안 그러면 우리 헤더 칩(#eureka-header-chip)은 "로그인됨"을
+   * 보여주는데 디자인 고유의 GNB "로그인" 버튼은 그대로 남아 화면에
+   * 서로 다른 두 상태가 동시에 뜬다. isLoggedIn은 디자인 script
+   * 최상위의 `let`이라 이 IIFE 안에서 맨이름으로 대입하면 이 파일
+   * 자신의 동명 지역 함수(위의 isLoggedIn())를 덮어써 버린다 — 그래서
+   * 반드시 간접 eval(페이지 전역 스코프에서 실행됨)로 건드린다. */
+  function syncDesignAuthFlag(loggedIn) {
+    try {
+      window.eval(
+        'isLoggedIn = ' + (loggedIn ? 'true' : 'false') + ';' +
+        'if (typeof updateAuthUI === "function") updateAuthUI();'
+      );
+    } catch (e) { /* 디자인에 isLoggedIn/updateAuthUI가 없으면 조용히 넘어간다 */ }
   }
 
   /* =====================================================================
@@ -606,13 +501,19 @@
     return item;
   }
 
+  var EUREKA_PERIOD_LABEL = { day: '하루', week: '일주일', month: '한 달 이상' };
+
   function rowToIdeaItem(row) {
     var item = {};
     var payload = row.payload || {};
     for (var k in payload) item[k] = payload[k];
     item.idea_key = row.idea_key;
-    item.period = row.period;
     item.periodKey = row.period;
+    // payload.period(한글 라벨, getRecommendedAiList가 기대하는 형태)가
+    // 이미 있으면 그대로 두고, 없으면(이관된 옛 데이터 등) DB의 영문
+    // period 키로부터 복원한다 — row.period로 그냥 덮어쓰면 한글 라벨이
+    // 영문 키로 바뀌어 추천 AI 목록이 항상 '한 달 이상'으로 잘못 떨어진다.
+    if (!item.period) item.period = EUREKA_PERIOD_LABEL[row.period] || '하루';
     return item;
   }
 
@@ -687,7 +588,6 @@
     var originalToggleSaveIdea = window.toggleSaveIdea;
     var originalRemoveSavedKeyword = window.removeSavedKeyword;
     var originalRemoveSavedIdea = window.removeSavedIdea;
-    var originalSyncSavedIdea = window.syncSavedIdea;
 
     if (typeof originalToggleSaveKeyword === 'function') {
       window.toggleSaveKeyword = function (e, id) {
@@ -714,11 +614,25 @@
 
     if (typeof originalToggleSaveIdea === 'function') {
       window.toggleSaveIdea = function (btn, index) {
-        if (!isLoggedIn()) return originalToggleSaveIdea(btn, index);
         var idea = generatedIdeas[index];
-        var existing = savedIdeas.filter(function (i) { return i.name === idea.name; })[0];
+        var existing = idea ? savedIdeas.filter(function (i) { return i.name === idea.name; })[0] : null;
         var wasSaved = !!existing;
         var ideaKeyToDelete = existing ? existing.idea_key : null;
+
+        if (!isLoggedIn()) {
+          originalToggleSaveIdea(btn, index);
+          // 로그아웃 상태에서도 기간을 남겨 둔다 — 이 디자인의 저장 객체엔
+          // period/periodKey가 없어(toggleSaveIdea가 ...idea만 펼침),
+          // 나중에 로그인해서 이관될 때도 기간이 맞게 표시되도록 여기서 채운다.
+          if (!wasSaved) {
+            var localNewEntry = savedIdeas[savedIdeas.length - 1];
+            if (localNewEntry && !localNewEntry.periodKey) {
+              localNewEntry.period = configSettings.period;
+              localNewEntry.periodKey = EUREKA_PERIOD_KEY[configSettings.period] || 'day';
+            }
+          }
+          return;
+        }
 
         withLocalStorageSuppressed(function () { originalToggleSaveIdea(btn, index); });
 
@@ -729,6 +643,10 @@
         } else {
           var newEntry = savedIdeas[savedIdeas.length - 1];
           if (!newEntry) return;
+          if (!newEntry.periodKey) {
+            newEntry.period = configSettings.period;
+            newEntry.periodKey = EUREKA_PERIOD_KEY[configSettings.period] || 'day';
+          }
           window.EUREKA.auth.apiFetchJson('/api/library/ideas', {
             method: 'POST',
             body: {
@@ -776,18 +694,6 @@
       };
     }
 
-    if (typeof originalSyncSavedIdea === 'function') {
-      window.syncSavedIdea = function (idea) {
-        if (!isLoggedIn()) return originalSyncSavedIdea(idea);
-        withLocalStorageSuppressed(function () { originalSyncSavedIdea(idea); });
-        var entry = savedIdeas.filter(function (s) { return s.name === idea.name; })[0];
-        if (entry && entry.idea_key) {
-          window.EUREKA.auth.apiFetchJson('/api/library/ideas/' + encodeURIComponent(entry.idea_key), {
-            method: 'PATCH', body: { payload: entry }
-          }).then(function (r) { if (!r.ok) libToast('저장된 아이디어 동기화에 실패했어요.'); });
-        }
-      };
-    }
   }
 
   /* =====================================================================
@@ -797,37 +703,47 @@
    * ===================================================================== */
 
   var lastRefreshInfo = null;  // 마지막 생성 응답의 {applied,reason,used,limit,variant}
-
-  function generationCtx() {
-    return { keyword: selectedKeyword.name, platform: configSettings.platform, type: configSettings.type };
-  }
+  var isGeneratingFlag = false;  // 이 디자인엔 전역 isGenerating 이 없어 모듈 내부에서만 관리한다.
 
   function errorCodeOf(err) {
     return err && err.detail && err.detail.detail && err.detail.detail.error_code;
   }
 
+  function showResultScreen(loading) {
+    var loadingEl = document.getElementById(SELECTORS.resultLoadingScreen);
+    var mainEl = document.getElementById(SELECTORS.resultScreen);
+    if (loadingEl) loadingEl.style.display = loading ? 'block' : 'none';
+    if (mainEl) mainEl.style.display = loading ? 'none' : 'block';
+  }
+
   /** 디자인의 executeIdeaGeneration()을 완전히 대체한다(부분 재사용이 안
-   * 되는 이유: 원본은 인자를 안 받고 요청 바디도 고정이라, refresh 필드와
-   * Authorization 헤더를 끼워 넣을 자리가 없다). 일반 생성 버튼의
-   * onclick="executeIdeaGeneration()" 은 opts가 없어도 그대로 동작한다
-   * (refresh 기본값 false). */
+   * 되는 이유: 원본은 인자를 안 받고 요청 바디도 고정이며, 서버 대신
+   * 로컬 목업 데이터를 그리는데 refresh 필드와 Authorization 헤더를
+   * 끼워 넣을 자리가 없다). 일반 생성 버튼의 onclick="executeIdeaGeneration()"
+   * 은 opts가 없어도 그대로 동작한다(refresh 기본값 false).
+   * 서버 호출이 실패하면(오프라인·서버 다운) 디자인 자신의 로컬 목업
+   * 생성기 finishIdeaGeneration() 을 그대로 불러 폴백으로 쓴다 — 그
+   * 쪽이 이미 완결된 오프라인 체험을 갖고 있어 다시 만들 필요가 없다. */
   window.executeIdeaGeneration = function (opts) {
     opts = opts || {};
     var isRefresh = !!opts.refresh;
 
     navigateTo('result');
-    document.getElementById('result-loading-screen').style.display = 'block';
-    document.getElementById('result-main-screen').style.display = 'none';
+    showResultScreen(true);
+    var loadingTextEl = document.getElementById(SELECTORS.loadingStepText);
+    if (loadingTextEl) {
+      loadingTextEl.innerText = isRefresh
+        ? '새로운 관점의 아이디어 3가지를 구상하고 있습니다...'
+        : ('#' + selectedKeyword.name + '의 검색어 데이터 및 SNS 반응 분석 중...');
+    }
 
-    var ctx = generationCtx();
     var period = configSettings.period;
-    var stopLoading = startLoadingMessages(ctx, period);
-    isGenerating = true;
+    isGeneratingFlag = true;
     updateRefreshButton();  // 이미 화면에 있던 버튼이 있다면 "만드는 중"으로 즉시 반영
 
     return apiFetch('/api/trends/' + selectedKeyword.id + '/ideas', {
       method: 'POST',
-      body: { platform: ctx.platform, type: ctx.type, period: period, count: 3, refresh: isRefresh }
+      body: { platform: configSettings.platform, type: configSettings.type, period: period, count: 3, refresh: isRefresh }
     }).then(function (res) {
       if (!res.ok) {
         return res.text().then(function (text) {
@@ -841,12 +757,14 @@
       }
       return res.json();
     }).then(function (data) {
-      return stopLoading().then(function () { return data; });
-    }).then(function (data) {
-      var periodKey = PERIOD_KEY[period] || 'day';
-      var ideas = data.ideas.map(function (x) { return toIdeaView(x, periodKey); });
       lastRefreshInfo = data.refresh || null;
-      renderIdeaResults(ideas, { source: data.source });
+      generatedIdeas = (data.ideas || []).map(mapBackendIdea);
+      activeIdeaIndex = 0;
+      showResultScreen(false);
+      var kwEl = document.getElementById(SELECTORS.resultKeywordName);
+      if (kwEl) kwEl.innerText = '#' + selectedKeyword.name;
+      renderIdeasTabs();
+      if (typeof window.showIdeaDetail === 'function') window.showIdeaDetail(0);
     }).catch(function (err) {
       console.warn(LOG, '[아이디어 생성] API 호출 실패:', err && err.message);
       if (isRefresh) {
@@ -857,24 +775,22 @@
         if (code === 'refresh_requires_login') msg = '로그인 후 새로고침할 수 있어요.';
         else if (code === 'quota_spent') msg = '이 키워드는 새로고침을 모두 사용했어요.';
         else if (code === 'refresh_unavailable') msg = '지금은 새로고침을 쓸 수 없어요.';
-        return stopLoading().then(function () { libToast(msg); });
+        showResultScreen(false);
+        libToast(msg);
+        return;
       }
-      return stopLoading().then(function () {
-        var drafts = buildFallbackIdeaDrafts(ctx);
-        var ideas = drafts.map(function (d) {
-          var copy = {};
-          for (var k in d) copy[k] = d[k];
-          copy.prompt = buildPromptForPeriod(d, ctx, period);
-          return copy;
-        });
-        lastRefreshInfo = null;
-        renderIdeaResults(ideas, { source: 'fallback' });
-      });
+      lastRefreshInfo = null;
+      if (typeof window.finishIdeaGeneration === 'function') {
+        window.finishIdeaGeneration();
+      } else {
+        showResultScreen(false);
+        libToast('아이디어 생성에 실패했어요. 잠시 후 다시 시도해주세요.');
+      }
     }).then(function () {
-      isGenerating = false;
+      isGeneratingFlag = false;
       updateRefreshButton();
     }).catch(function (e) {
-      isGenerating = false;
+      isGeneratingFlag = false;
       updateRefreshButton();
       console.error(LOG, '아이디어 생성 처리 중 예기치 못한 오류:', e);
     });
@@ -888,12 +804,16 @@
   }
 
   /** #ideas-tabs-container 는 renderIdeasTabs()가 매번 innerHTML로 갈아
-   *치우므로, 안에 넣지 않고 컨테이너 자체에 절대위치로 얹는다. 컨테이너의
-   * innerHTML 교체는 자식만 바꾸므로 컨테이너 자신의 인라인 style은
-   * 살아남는다. */
+   * 치우므로, 안에 넣지 않고 그 바깥 padded 박스(.figma-result-tabs-box,
+   * 카드 3개 + "새로받기" 영역을 함께 감싸는 회색 도형)에 절대위치로
+   * 얹는다. #ideas-tabs-container 자체에 얹으면 grid 여백이 없어 버튼이
+   * 세 번째 카드 위에 그대로 겹쳐 보였다(실제로 겹쳐서 카드를 가림).
+   * 바깥 박스는 padding이 있어 그 여백 안에 뜬다. 바깥 박스를 못 찾으면
+   * (구조가 또 바뀐 경우) 안전하게 컨테이너 자신으로 되돌아간다. */
   function mountRefreshButton() {
-    var box = document.getElementById(SELECTORS.ideaTabsBox);
-    if (!box) return;
+    var tabsBox = document.getElementById(SELECTORS.ideaTabsBox);
+    if (!tabsBox) return;
+    var box = tabsBox.closest('.figma-result-tabs-box') || tabsBox.parentElement || tabsBox;
     if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
 
     var btn = document.getElementById('eureka-refresh-btn');
@@ -911,8 +831,8 @@
   }
 
   function onRefreshButtonClick() {
-    if (isGenerating) return;
-    if (!isLoggedIn()) { openAuthModal('signin'); return; }
+    if (isGeneratingFlag) return;
+    if (!isLoggedIn()) { navigateTo('login'); return; }
     if (lastRefreshInfo && lastRefreshInfo.used >= lastRefreshInfo.limit) return;
     window.executeIdeaGeneration({ refresh: true });
   }
@@ -926,7 +846,7 @@
     btn.style.display = '';
     btn.title = '';
 
-    if (isGenerating) {
+    if (isGeneratingFlag) {
       btn.disabled = true;
       btn.style.opacity = '0.6'; btn.style.cursor = 'default';
       if (label) label.textContent = '새 아이디어를 만드는 중...';
@@ -976,8 +896,6 @@
       isEnabled: function () { return authEnabled; },
       isLoggedIn: isLoggedIn,
       currentUser: currentUser,
-      openModal: openAuthModal,
-      closeModal: closeAuthModal,
       signOut: handleSignOut,
       apiFetch: apiFetch,
       apiFetchJson: apiFetchJson,
@@ -1029,8 +947,8 @@
           if (isDebug) console.info(LOG, '로그인 기능 꺼짐(auth_enabled=false 또는 SDK 미로드)');
           return;
         }
-        injectStyleOnce();
-        mountHeaderChip();
+        installLoginOverrides();
+        installLogoutOverride();
         installLibraryOverrides();
         window.EUREKA.onTabsRender(mountRefreshButton);
         bootSession();
@@ -1038,6 +956,7 @@
         window.EUREKA.auth.onSignedIn(function (user) {
           migrateLocalLibraryIfNeeded(user).then(function () { return loadLibrary(); });
           updateRefreshButton();
+          syncDesignAuthFlag(true);
         });
         // 로그아웃하면 화면은 빈 보관함으로 — localStorage는 건드리지 않는다.
         window.EUREKA.auth.onSignedOut(function () {
@@ -1046,6 +965,7 @@
           lastRefreshInfo = null;
           rerenderAfterLibraryChange();
           updateRefreshButton();
+          syncDesignAuthFlag(false);
         });
         if (isDebug) console.info(LOG, 'boot 완료', window.EUREKA.describe());
       }).catch(function (err) {
